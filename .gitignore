@@ -1,0 +1,37 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Environment and local state
+.env
+.env.local
+*.db
+*.db-shm
+*.db-wal
+var/
+chroma/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/node_modules/
+*.tsbuildinfo
+
+# Editors and OS
+.DS_Store
+Thumbs.db
+.idea/
+
+# Build and test artefacts
+dist/
+build/
+playwright-report/
+test-results/
