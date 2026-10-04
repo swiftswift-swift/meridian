@@ -1,0 +1,17 @@
+# Normalise to LF in the repository; check out native on Windows.
+* text=auto
+
+# PowerShell and batch files need CRLF to behave on Windows.
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Shell scripts must stay LF even when checked out on Windows (they run in containers).
+*.sh text eol=lf
+Dockerfile text eol=lf
+
+# Lock files are generated; keep them out of diff review noise.
+requirements.txt linguist-generated=true
+requirements-dev.txt linguist-generated=true
+frontend/package-lock.json linguist-generated=true
+frontend/src/api/types.gen.ts linguist-generated=true

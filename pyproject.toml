@@ -1,0 +1,108 @@
+[project]
+name = "meridian"
+version = "0.0.0"
+description = "Autonomous research and analysis agent for business analysts"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.13,<3.15"
+
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*", "company_db*", "scripts*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+src = ["app", "scripts", "tests", "company_db"]
+
+[tool.ruff.lint]
+select = [
+    "F",      # pyflakes
+    "E", "W", # pycodestyle
+    "I",      # isort
+    "N",      # pep8-naming
+    "UP",     # pyupgrade
+    "B",      # bugbear
+    "A",      # builtin shadowing
+    "C4",     # comprehensions
+    "DTZ",    # naive datetimes
+    "T20",    # print / pprint
+    "SIM",    # simplify
+    "TID",    # tidy imports
+    "PTH",    # pathlib over os.path
+    "RUF",
+    "ASYNC",
+    "S",      # bandit
+    "BLE",    # blind except
+    "RET",
+    "ARG",    # unused arguments
+    "PL",     # pylint subset
+    "TRY",    # exception antipatterns
+]
+ignore = [
+    "PLR0913", # argument count: composition roots legitimately take many collaborators
+    "TRY003",  # the error taxonomy carries messages at the raise site on purpose
+    "S101",    # assert is the point of the test suite; re-enabled for app/ below
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests may assert, hardcode demo credentials and use long literal fixtures.
+"tests/**" = ["S105", "S106", "S311", "PLR2004", "ARG001", "ARG002"]
+"scripts/**" = ["S311"]            # seed data is generated with random, not used for secrets
+"app/infra/migrations/**" = ["N999", "E501", "ARG001", "INP001"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+warn_unreachable = true
+warn_return_any = true
+disallow_untyped_defs = true
+disallow_any_generics = true
+no_implicit_reexport = true
+show_error_codes = true
+plugins = ["pydantic.mypy"]
+files = ["app", "scripts", "company_db", "tests"]
+exclude = '(^|/)(\.venv|frontend|app/infra/migrations/versions)/'
+
+[[tool.mypy.overrides]]
+# These ship no type information; the adapters that wrap them are typed at the boundary.
+module = ["rank_bm25.*", "chromadb.*", "trafilatura.*", "ddgs.*", "locust.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --strict-config"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "integration: exercises more than one component, may touch a temporary database",
+    "e2e: drives a real browser, skipped when it cannot be installed",
+    "slow: takes more than a second",
+]
+filterwarnings = ["error", "ignore::DeprecationWarning:httpx.*"]
+
+[tool.coverage.run]
+branch = true
+source = ["app"]
+omit = ["app/infra/migrations/*", "app/__main__.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    '@(typing\.)?overload',
+    'class .*\(Protocol\):',
+    '\.\.\.',
+]
