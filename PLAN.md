@@ -97,7 +97,7 @@ Pins are exact. Lock files (`requirements.txt` via pip-tools, `package-lock.json
 the tables below are the intent. Where the newest major is very fresh, the plan deliberately picks the
 previous stable major so the repo builds the same way in six months.
 
-### Python (3.13 target - see Question 1)
+### Python (3.14 on this machine, >=3.13 supported - see Decisions)
 
 | Package | Pin | Why |
 | --- | --- | --- |
@@ -135,7 +135,7 @@ previous stable major so the repo builds the same way in six months.
 Dev: pytest 9.1.1, pytest-asyncio 1.4.0, pytest-cov 7.1.0, hypothesis 6.168.3, ruff 0.16.10,
 mypy 2.4.0, pip-tools 7.6.1, pre-commit 4.6.2, locust 2.46.6.
 
-### Frontend (Node 20 - see Question 1)
+### Frontend (Node 24 on this machine, >=20 supported - see Decisions)
 
 | Package | Pin | Why |
 | --- | --- | --- |
@@ -354,8 +354,22 @@ git log --oneline ; git tag
 
 ---
 
+## Decisions taken at Step 0
+
+These deviate from SPEC.md only where SPEC.md describes an environment that does not match the machine.
+SPEC.md stays verbatim; this section is the amendment record.
+
+| # | Topic | Decision | Evidence / reason |
+| --- | --- | --- | --- |
+| 1 | Python | Build on the installed **3.14.8**. `requires-python = ">=3.13,<3.15"`, `.python-version` = 3.14, CI matrix 3.13 + 3.14. | Every native dependency has a usable Windows wheel on 3.14: numpy, psycopg-binary, greenlet, pydantic-core, onnxruntime ship `cp314-win_amd64`; chromadb, argon2-cffi-bindings and tokenizers ship forward-compatible `abi3` wheels. Every library's `requires-python` has an open upper bound. No install needed from the user. |
+| 2 | Node | Build on the installed **24.21.0**. `engines.node = ">=20"`, `.nvmrc` = 24, CI matrix 20 + 24. | React 19 / Vite 7 / Vitest 3 all support Node 24. CI still proves the Node 20 LTS that SPEC names. |
+| 3 | PDF export | **Browser print-to-PDF**: dedicated print stylesheet + `window.print()`. | No extra dependency, no Chromium download, works on a blocked network, chart vectors stay vectors. |
+| 4 | Docker | Deliverables written in Phase 9 and validated for real by the CI `docker-build` job. Acceptance check 14 runs locally only if Docker Desktop is installed; otherwise it is reported as not verified locally. | Docker is not installed on the machine; the acceptance report must not claim an unrun check. |
+
 ## Open questions
 
-Tracked in the conversation; answers get folded into this plan before the phase that needs them.
-See the questions raised with the Step 0 handoff (Python/Node versions, Docker availability, PDF export,
-LLM key for check 13, visual direction, repo remote).
+- [ ] Groq (or Ollama) key for acceptance check 13 - a custom question end to end with a real model. Without one, check 13 is reported as not verified.
+- [ ] Git remote / GitHub repo name - needed for the CI status badge URL, dependabot and Actions actually running.
+- [ ] Visual direction for the "distinctive non-template" design - any brand colour, font or reference, or my choice.
+- [ ] Share-link model - unguessable token readable without sign-in, or sign-in still required.
+- [ ] Tavily key - optional; without it `web_search` uses ddgs live or fixtures.
