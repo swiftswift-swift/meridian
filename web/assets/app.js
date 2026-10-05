@@ -84,6 +84,11 @@
 
   /* ------------------------------------------------------- the run window ---- */
 
+  function revealStage() {
+    const stage = $(".hero-demo");
+    if (stage) stage.scrollIntoView({ block: "start", behavior: "smooth" });
+  }
+
   function resetStage(question) {
     $("#plan-list").innerHTML = "";
     $("#timeline").innerHTML = "";
@@ -188,8 +193,9 @@
 
   /* ------------------------------------------------------ run an investigation ---- */
 
-  async function investigate(task) {
+  async function investigate(task, { scroll = true } = {}) {
     const mine = ++state.runToken;
+    if (scroll) revealStage();
     const alive = () => mine === state.runToken;
 
     resetStage(task.question);
@@ -378,35 +384,61 @@
     const task = TASKS.tasks.find((candidate) => candidate.matches(question));
     if (!task) {
       explainScriptedLimit(question);
+      revealStage();
+      toast("That question needs a real language model. See the explanation below.", "error");
       return;
     }
+    revealStage();
+    toast("Planning the investigation…", "success");
     await investigate(task);
   }
 
-  // The scripted model is deterministic by design, so it genuinely cannot answer an arbitrary
-  // question. Saying so plainly, with the fix, is better than failing silently.
+  // Two different reasons a question cannot be answered, and they deserve different messages.
+  // Asking about data that does not exist is not a model limitation, and saying "configure a
+  // language model" to someone asking about headcount would be actively misleading.
+  const KNOWN_SUBJECTS =
+    /revenue|sales|order|customer|product|margin|campaign|marketing|spend|region|emea|apac|americas|currency|exchange|churn|price|discount/i;
+
   function explainScriptedLimit(question) {
     ++state.runToken;
     resetStage(question);
-    $("#demo-caption").textContent = "This question needs a real language model.";
-    $("#timeline").innerHTML = `
-      <div class="notice" data-kind="warn">
-        <strong>This demo is running on a built-in scripted model.</strong>
-        <p>
-          It answers three questions exactly, with no API key and no internet connection, which is
-          also how the automated tests run. It cannot answer an arbitrary question, by design.
-        </p>
-        <p>To ask anything you like, point it at a real model and restart:</p>
-        <pre>LLM_PROVIDER=openai
+
+    const outOfScope = !KNOWN_SUBJECTS.test(question);
+    $("#demo-caption").textContent = outOfScope
+      ? "That subject is not in this database."
+      : "This question needs a real language model.";
+
+    const scopeBlock = `
+      <p><strong style="display:inline">What this database holds:</strong> sales orders and order
+      lines, customers and the countries they are in, products and product lines with their
+      margins, and monthly marketing spend by campaign. Two years of it.</p>
+      <p>There is no HR, headcount, payroll or recruitment data, so no amount of model capability
+      would answer a question about hiring. Connecting a new data source is how that changes.</p>`;
+
+    const modelBlock = `
+      <p>
+        It answers three questions exactly, with no API key and no internet connection, which is
+        also how the 95 automated tests run. It cannot answer an arbitrary question, by design.
+      </p>
+      <p>To ask anything you like, set these and restart the server:</p>
+      <pre>LLM_PROVIDER=openai
 OPENAI_BASE_URL=https://api.groq.com/openai/v1
 OPENAI_API_KEY=gsk_...            # free tier
 OPENAI_MODEL=llama-3.3-70b-versatile</pre>
-        <p>
-          Or run a model on your own machine so no data leaves your network:
-          <code>OPENAI_BASE_URL=http://localhost:11434/v1</code> with Ollama, where no key is
-          needed.
-        </p>
-        <p class="muted">Meanwhile, try one of the three suggested questions above.</p>
+      <p>
+        Or keep it on your own machine with Ollama so no data leaves your network:
+        <code>OPENAI_BASE_URL=http://localhost:11434/v1</code>, where no key is needed.
+      </p>`;
+
+    $("#timeline").innerHTML = `
+      <div class="notice" data-kind="warn">
+        <strong>${
+          outOfScope
+            ? "This demo database has no data on that."
+            : "This demo is running on a built-in scripted model."
+        }</strong>
+        ${outOfScope ? scopeBlock : modelBlock}
+        <p class="muted">Try one of the three suggested questions, which do work end to end.</p>
       </div>`;
   }
 
@@ -719,7 +751,7 @@ GROUP BY campaign`,
     // Sign in automatically so the page demonstrates itself on first load rather than showing an
     // empty shell behind a sign-in wall.
     if (!state.token) await signInDemo("analyst");
-    if (state.token) await investigate(TASKS.tasks[0]);
+    if (state.token) await investigate(TASKS.tasks[0], { scroll: false });
   }
 
   if (document.readyState === "loading") {
