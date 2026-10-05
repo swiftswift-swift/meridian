@@ -1304,3 +1304,43 @@ details p {
   flex-direction: column;
   min-width: 0;
 }
+
+/* Build status per step. Marking what is not built is the point, not a footnote. */
+.steps li {
+  position: relative;
+  padding-bottom: 46px;
+}
+.step-tag {
+  position: absolute;
+  left: 22px;
+  bottom: 18px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 2px;
+  border: 1px solid;
+}
+.step-tag.built {
+  color: var(--good);
+  border-color: color-mix(in srgb, var(--good) 45%, transparent);
+  background: color-mix(in srgb, var(--good) 10%, transparent);
+}
+.step-tag.partial {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 45%, transparent);
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+.step-tag.planned {
+  color: var(--text-faint);
+  border-color: var(--line);
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+.steps li[data-built="no"] h3,
+.steps li[data-built="no"] p {
+  opacity: 0.72;
+}
