@@ -20,8 +20,11 @@ from app.api.middleware import (
     RequestContextMiddleware,
     SecurityHeadersMiddleware,
 )
+from app.api.spa import mount_web_interface
 from app.api.v1 import auth as auth_routes
+from app.api.v1 import datasources as datasource_routes
 from app.api.v1 import health as health_routes
+from app.api.v1 import insights as insight_routes
 from app.container import ServiceContainer
 from app.infra.logging import configure_logging
 from app.settings import Settings
@@ -66,6 +69,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     _register_middleware(app, resolved)
     register_error_handlers(app)
     _register_routes(app)
+    # Mounted last: its catch-all SPA route must not shadow an API path.
+    mount_web_interface(app, resolved)
     return app
 
 
@@ -92,7 +97,8 @@ def _register_middleware(app: FastAPI, settings: Settings) -> None:
 
 def _register_routes(app: FastAPI) -> None:
     app.include_router(health_routes.router)
-    app.include_router(auth_routes.router, prefix="/api/v1")
+    for router in (auth_routes.router, datasource_routes.router, insight_routes.router):
+        app.include_router(router, prefix="/api/v1")
 
 
 def app() -> FastAPI:

@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Meridian — autonomous research for business analysts</title>
+    <meta
+      name="description"
+      content="An autonomous research agent that plans an investigation, asks for approval, and cites every claim to a tool result."
+    />
+    <link rel="stylesheet" href="/assets/styles.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='13' fill='none' stroke='%23e8c547' stroke-width='3'/><path d='M3 16h26' stroke='%23e8c547' stroke-width='3'/></svg>"
+    />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="Meridian home">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-name">Meridian</span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="#how">How it works</a>
+        <a href="#trust">Built for trust</a>
+        <a href="#playground">Guard playground</a>
+        <a href="#status">Build status</a>
+      </nav>
+      <div class="header-actions">
+        <button class="btn btn-ghost" id="theme-toggle" type="button" aria-label="Toggle colour theme">
+          <span data-theme-icon>Light</span>
+        </button>
+        <button class="btn btn-primary" id="try-demo" type="button">Try the demo</button>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- ================= HERO ================= -->
+      <section class="hero" id="top">
+        <div class="hero-copy">
+          <p class="eyebrow">Autonomous research agent</p>
+          <h1>
+            Ask a question that takes<br />
+            <span class="accent">six steps to answer.</span>
+          </h1>
+          <p class="lede">
+            Meridian plans the investigation, shows you the plan before it spends anything, then
+            works through it choosing its own tools. Every sentence in the report is cited to the
+            exact query or passage it came from.
+          </p>
+          <div class="hero-cta">
+            <button class="btn btn-primary btn-lg" id="hero-demo" type="button">
+              Try the demo
+            </button>
+            <button class="btn btn-ghost btn-lg" id="replay-run" type="button">Replay run</button>
+          </div>
+          <dl class="hero-stats" id="hero-stats">
+            <div><dt>Orders seeded</dt><dd data-stat="orders">4,491</dd></div>
+            <div><dt>Tests, offline</dt><dd data-stat="tests">95</dd></div>
+            <div><dt>SQL mutations allowed</dt><dd data-stat="mutations">0</dd></div>
+          </dl>
+        </div>
+
+        <!-- The hero animation is a replay of a real scripted run, with the figures that the
+             seeded data actually produces. -->
+        <div class="hero-demo" aria-label="Example agent run">
+          <div class="window">
+            <div class="window-bar">
+              <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+              <span class="window-title">Why did EMEA revenue drop in Q3 compared to Q2?</span>
+            </div>
+            <div class="window-body" id="run-stage">
+              <ol class="plan" id="plan-list"></ol>
+              <div class="timeline" id="timeline"></div>
+              <article class="report" id="report" hidden>
+                <header class="report-head">
+                  <h3>EMEA Q3 revenue: currency, not demand</h3>
+                  <span class="badge badge-good" id="verify-badge">Verified 0.94</span>
+                </header>
+                <p>
+                  Reported EMEA revenue fell <strong>5.7%</strong> from $9,468,359 in Q2 2025 to
+                  $8,926,124 in Q3 <cite data-src="S1">S1</cite>. Measured in local currency the
+                  same book of business <strong>grew 2.2%</strong>
+                  <cite data-src="S1">S1</cite>, so currency accounts for
+                  <strong>7.9 points</strong> of the decline <cite data-src="S2">S2</cite>.
+                </p>
+                <p>
+                  The euro weakened from 1.092 to 0.995 against the dollar between the two
+                  quarters <cite data-src="S2">S2</cite>. Separately, Helvetica Logistics, which
+                  was <strong>9.5%</strong> of EMEA Q2 revenue, did not renew at the end of Q2
+                  <cite data-src="S3">S3</cite>. An internal review attributes the non-renewal to
+                  the customer being acquired, not to a competitive loss
+                  <cite data-src="S4">S4</cite>.
+                </p>
+                <div class="chart" id="chart" aria-label="EMEA revenue by quarter, USD versus local currency"></div>
+                <p class="limitation">
+                  Limitation: attribution between currency and the lost account is arithmetic on
+                  reported figures, not a controlled comparison.
+                </p>
+              </article>
+            </div>
+          </div>
+          <div class="source-panel" id="source-panel" hidden>
+            <div class="source-head">
+              <strong id="source-title">Source</strong>
+              <button class="btn btn-ghost btn-sm" id="close-source" type="button">Close</button>
+            </div>
+            <pre id="source-body"></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= HOW IT WORKS ================= -->
+      <section class="band" id="how">
+        <h2>How it works</h2>
+        <p class="band-lede">
+          One agent, eight nodes, and a hard stop on everything it can spend.
+        </p>
+        <ol class="steps">
+          <li><span class="step-n">1</span><h3>Plan</h3><p>Three to eight concrete steps, each naming the tools it intends to use and the evidence it expects to find.</p></li>
+          <li><span class="step-n">2</span><h3>Approve</h3><p>The graph interrupts. You approve, edit the steps, or cancel before any budget is spent.</p></li>
+          <li><span class="step-n">3</span><h3>Execute</h3><p>A tool-calling loop per step. Read-only SQL, hybrid document search, web search, exchange rates, a safe calculator.</p></li>
+          <li><span class="step-n">4</span><h3>Reflect</h3><p>Continue, re-plan with a stated reason, or stop early because the question is already answered.</p></li>
+          <li><span class="step-n">5</span><h3>Verify</h3><p>Every citation must exist and the numbers in each sentence must appear in the evidence. Unsupported claims are removed.</p></li>
+          <li><span class="step-n">6</span><h3>Resume</h3><p>Every transition is checkpointed. Kill the worker mid-run and it resumes without repeating a single tool call.</p></li>
+        </ol>
+      </section>
+
+      <!-- ================= TRUST ================= -->
+      <section class="band band-alt" id="trust">
+        <h2>Built for trust</h2>
+        <p class="band-lede">
+          An agent that writes its own SQL and chooses its own tools needs guardrails that do not
+          depend on the model behaving.
+        </p>
+        <div class="cards">
+          <article class="card">
+            <h3>Read-only SQL, by parsing</h3>
+            <p>
+              Statements are parsed with sqlglot and reasoned about as a syntax tree. A regex cannot
+              tell a CTE named <code>delete_me</code> or the literal <code>'DROP TABLE'</code> from
+              a real mutation. The database is also opened <code>query_only</code>, on its own
+              engine, because a parser is software too.
+            </p>
+          </article>
+          <article class="card">
+            <h3>Citations checked against numbers</h3>
+            <p>
+              The realistic failure is not an invented <code>[S9]</code>; it is a real source id
+              attached to a figure the model made up. Numeric claims are matched against the cited
+              rows, allowing for rounding and unit changes.
+            </p>
+          </article>
+          <article class="card">
+            <h3>Four hard budgets</h3>
+            <p>
+              Steps, tokens, cost and wall time. A step cap alone is no cost control when one step
+              can call a tool fifty times. A model missing from the price table costs a fallback
+              rate, never zero.
+            </p>
+          </article>
+          <article class="card">
+            <h3>Untrusted tool results</h3>
+            <p>
+              Documents and web pages are data, never instructions. The seeded corpus contains a
+              realistic injection attempt; ingest trips eight signatures on it and none on the
+              other eleven documents.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <!-- ================= PLAYGROUND ================= -->
+      <section class="band" id="playground">
+        <h2>Guard playground</h2>
+        <p class="band-lede">
+          This runs the real guard against the real read-only database — the same path the agent's
+          <code>sql_query</code> tool takes. Try to break it.
+        </p>
+        <div class="playground" id="playground-root">
+          <div class="pg-controls">
+            <div class="pg-presets" id="pg-presets"></div>
+            <label class="sr-only" for="sql-input">SQL query</label>
+            <textarea id="sql-input" spellcheck="false" rows="4">SELECT r.code, SUM(o.subtotal_usd) AS usd, SUM(o.subtotal_local) AS local
+FROM orders o
+JOIN customers c ON c.id = o.customer_id
+JOIN countries k ON k.id = c.country_id
+JOIN regions r ON r.id = k.region_id
+WHERE o.order_date >= '2025-07-01' AND o.status = 'fulfilled'
+GROUP BY r.code</textarea>
+            <div class="pg-actions">
+              <button class="btn btn-primary" id="run-sql" type="button">Run query</button>
+              <span class="pg-hint" id="pg-hint">Sign in to run queries</span>
+            </div>
+          </div>
+          <div class="pg-result" id="pg-result">
+            <p class="muted">Results appear here.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= STATUS ================= -->
+      <section class="band band-alt" id="status">
+        <h2>Build status</h2>
+        <p class="band-lede">
+          This is a partial build. What is listed as done has been run and verified; what is not
+          built is specified in SPEC.md and tracked in PLAN.md.
+        </p>
+        <div class="status-grid" id="status-grid"></div>
+        <div class="providers" id="providers" hidden>
+          <h3>This deployment is wired to</h3>
+          <ul id="provider-list"></ul>
+        </div>
+      </section>
+
+      <!-- ================= FAQ ================= -->
+      <section class="band" id="faq">
+        <h2>Questions</h2>
+        <div class="faq">
+          <details>
+            <summary>Does it need an API key?</summary>
+            <p>
+              No. The default configuration uses a deterministic scripted model, recorded tool
+              fixtures and offline hash embeddings, so the whole application and its 95 tests run
+              with no network access and no key. Point <code>OPENAI_BASE_URL</code> at Groq or a
+              local Ollama to use a real model.
+            </p>
+          </details>
+          <details>
+            <summary>What stops the agent writing to the database?</summary>
+            <p>
+              Three things. Statements are parsed and anything that is not a read is refused with a
+              reason. The allowlist limits which tables and columns can be named at all. And the
+              company data lives in a separate database opened read-only, so the agent's connection
+              has no write capability to grant.
+            </p>
+          </details>
+          <details>
+            <summary>What happens if the worker crashes mid-run?</summary>
+            <p>
+              Every node transition is checkpointed, and every tool call is recorded in a ledger
+              keyed by a hash of run, step, tool and canonical arguments with a uniqueness
+              constraint. A resumed run replays recorded results instead of calling out again, so
+              recovery costs nothing and repeats no side effects. The schema and the design are in
+              place; the worker itself is the next phase.
+            </p>
+          </details>
+          <details>
+            <summary>Is the demo data real?</summary>
+            <p>
+              It is generated, seeded and reproducible — two years of a fictional company,
+              containing three deliberate stories so there is something genuine to find. Every
+              figure in the example report above is computed from those rows, not written into a
+              fixture.
+            </p>
+          </details>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div>
+        <span class="brand-mark small" aria-hidden="true"></span>
+        <strong>Meridian</strong>
+        <p class="muted">Autonomous research and analysis for business analysts.</p>
+      </div>
+      <nav aria-label="Footer">
+        <a href="/api/docs">Developer API</a>
+        <a href="/health/ready">Readiness</a>
+        <a href="#status">Build status</a>
+      </nav>
+    </footer>
+
+    <div class="toast-stack" id="toasts" aria-live="polite" role="status"></div>
+    <script src="/assets/app.js"></script>
+  </body>
+</html>
