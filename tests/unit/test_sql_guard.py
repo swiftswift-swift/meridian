@@ -11,7 +11,7 @@ from hypothesis import given
 from hypothesis import settings as hypothesis_settings
 from hypothesis import strategies as st
 
-from app.domain.sql_guard import SqlSchema, validate_sql
+from app.domain.sql_guard import GuardDecision, SqlSchema, validate_sql
 
 SCHEMA = SqlSchema.from_mapping(
     {
@@ -24,7 +24,7 @@ SCHEMA = SqlSchema.from_mapping(
 MAX_ROWS = 500
 
 
-def guard(sql: str):
+def guard(sql: str) -> GuardDecision:
     return validate_sql(sql, SCHEMA, max_rows=MAX_ROWS)
 
 
@@ -155,7 +155,7 @@ def test_property_mutations_are_always_refused(keyword: str, table: str) -> None
 
 @given(
     st.text(
-        alphabet=st.characters(blacklist_categories=("Cs",)),
+        alphabet=st.characters(blacklist_categories=["Cs"]),
         min_size=0,
         max_size=120,
     )
