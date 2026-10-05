@@ -167,56 +167,64 @@
       <section class="band" id="how">
         <h2>How it works, step by step</h2>
         <p class="band-lede">
-          Six stages. The important one is the second: it asks permission before it does anything.
+          Six stages. Four are built and two are not, and the tags below say which. Steps 1, 3 and
+          5 are what runs when you ask a question above.
         </p>
         <ol class="steps">
-          <li>
+          <li data-built="yes">
             <span class="step-n">1</span>
             <h3>It makes a plan</h3>
             <p>
-              It breaks your question into a handful of concrete steps and says which data it
-              intends to look at for each one.
+              The model is given the database schema and the date range the data covers, and asked
+              for concrete steps plus the SQL for each one.
             </p>
+            <span class="step-tag built">built</span>
           </li>
-          <li>
+          <li data-built="partial">
             <span class="step-n">2</span>
             <h3>You approve the plan</h3>
             <p>
-              It stops and waits. You can approve it, reword the steps, or cancel. Nothing is spent
-              and nothing runs until you say so.
+              It stops and waits. You approve, reword the steps, or cancel. Nothing is spent and
+              nothing runs until you say so.
             </p>
+            <span class="step-tag partial">on the three built-in questions only</span>
           </li>
-          <li>
+          <li data-built="yes">
             <span class="step-n">3</span>
             <h3>It does the work</h3>
             <p>
-              It queries the sales database, searches internal documents, looks up exchange rates
-              and does the arithmetic — choosing which to use as it goes.
+              Each query it wrote is checked by the guard, then run against a read-only connection.
+              A refused query is reported, not silently dropped.
             </p>
+            <span class="step-tag built">built</span>
           </li>
-          <li>
+          <li data-built="no">
             <span class="step-n">4</span>
             <h3>It changes course if needed</h3>
             <p>
-              If what it finds contradicts the plan, it re-plans and tells you why. If the question
-              is already answered, it stops early rather than padding.
+              Re-planning when the evidence contradicts the plan. Today it runs one pass: it plans,
+              queries, and writes from whatever came back.
             </p>
+            <span class="step-tag planned">designed, not built</span>
           </li>
-          <li>
+          <li data-built="yes">
             <span class="step-n">5</span>
             <h3>It checks its own homework</h3>
             <p>
-              Before you see the answer, every number in it is matched back against the data it
-              claims to come from. Unsupported sentences are deleted.
+              Every number in the answer is matched against the rows that were actually returned.
+              Unsupported sentences are deleted and the score drops. No model is involved: this is
+              a pure function.
             </p>
+            <span class="step-tag built">built</span>
           </li>
-          <li>
+          <li data-built="no">
             <span class="step-n">6</span>
             <h3>It survives a crash</h3>
             <p>
-              If the server restarts halfway through, it picks up where it left off instead of
-              starting again — and never repeats work it already did.
+              Resuming from the last checkpoint without repeating tool calls. The ledger table and
+              its uniqueness constraint are in the schema; the worker that uses them is not written.
             </p>
+            <span class="step-tag planned">designed, not built</span>
           </li>
         </ol>
       </section>
