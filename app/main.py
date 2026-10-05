@@ -23,9 +23,11 @@ from app.api.middleware import (
 from app.api.spa import mount_web_interface
 from app.api.v1 import auth as auth_routes
 from app.api.v1 import datasources as datasource_routes
+from app.api.v1 import evaluation as evaluation_routes
 from app.api.v1 import health as health_routes
 from app.api.v1 import insights as insight_routes
 from app.api.v1 import research as research_routes
+from app.api.v1 import runs as run_routes
 from app.container import ServiceContainer
 from app.infra.logging import configure_logging
 from app.settings import Settings
@@ -103,6 +105,9 @@ def _register_routes(app: FastAPI) -> None:
         datasource_routes.router,
         insight_routes.router,
         research_routes.router,
+        run_routes.router,
+        run_routes.public_router,
+        evaluation_routes.router,
     ):
         app.include_router(router, prefix="/api/v1")
 
