@@ -49,9 +49,26 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 # Tests may assert, hardcode demo credentials and use long literal fixtures.
-"tests/**" = ["S101", "S105", "S106", "S311", "PLR2004", "ARG001", "ARG002", "PLC0415"]
+# Tests assert, hardcode demo credentials, build SQL strings to attack the guard with, and
+# take fixtures they do not reference directly.
+"tests/**" = [
+    "S101",
+    "S105",
+    "S106",
+    "S311",
+    "S608",
+    "PLR2004",
+    "ARG001",
+    "ARG002",
+    "PLC0415",
+    "E402",
+]
 "scripts/**" = ["S311"]            # seed data is generated with random, not used for secrets
 "app/infra/migrations/**" = ["N999", "E501", "ARG001", "INP001"]
+
+[tool.ruff.lint.isort]
+# Without this, first-party imports inside tests/ are sorted as third-party.
+known-first-party = ["app", "scripts", "company_db"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"

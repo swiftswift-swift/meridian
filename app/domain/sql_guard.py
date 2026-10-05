@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 
 import sqlglot
 from sqlglot import exp
+from sqlglot.errors import SqlglotError
 
 # Every expression type that writes, changes structure, or escapes the query sandbox.
 FORBIDDEN_EXPRESSIONS: tuple[type[exp.Expr], ...] = (
@@ -107,8 +108,14 @@ def validate_sql(  # noqa: PLR0911
 
     try:
         statements = sqlglot.parse(sql, read=dialect)
-    except sqlglot.ParseError as exc:
+    except SqlglotError as exc:
+        # SqlglotError, not ParseError: an unterminated quote or backtick raises TokenError,
+        # which is a sibling of ParseError, and letting it escape would turn malformed input
+        # into an unhandled 500 on the untrusted path. Found by the hypothesis property test.
         return GuardDecision(allowed=False, reason=f"The query could not be parsed: {exc}")
+    except RecursionError:
+        # Deeply nested parentheses exhaust the parser's stack before any rule runs.
+        return GuardDecision(allowed=False, reason="The query is nested too deeply to analyse.")
 
     # A None entry is what sqlglot yields for a trailing semicolon; real statements remain.
     real_statements = [statement for statement in statements if statement is not None]

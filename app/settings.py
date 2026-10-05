@@ -21,6 +21,9 @@ from app.domain.errors import ConfigurationError
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
+# RFC 7518 section 3.2: the HMAC key must be at least as long as the hash output.
+MIN_JWT_SECRET_BYTES = 32
+
 
 def _blank_to_none(value: object) -> object:
     """Treat a blank .env entry as absent.
@@ -211,6 +214,19 @@ class Settings(BaseSettings):
         if any(origin == "*" for origin in self.cors_allow_origins):
             raise ConfigurationError(
                 "APP_ENV=production refuses CORS_ALLOW_ORIGINS=*. List the exact origins."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _require_a_strong_signing_key(self) -> Self:
+        # RFC 7518 section 3.2 sets 32 bytes as the minimum for HMAC-SHA256, and PyJWT warns
+        # below it. Failing at startup beats discovering it from a warning in the logs.
+        secret = self.jwt_secret.get_secret_value()
+        if len(secret.encode()) < MIN_JWT_SECRET_BYTES:
+            raise ConfigurationError(
+                f"JWT_SECRET must be at least {MIN_JWT_SECRET_BYTES} bytes; this one is "
+                f"{len(secret.encode())}. Generate one with "
+                '`python -c "import secrets; print(secrets.token_urlsafe(48))"`.'
             )
         return self
 
