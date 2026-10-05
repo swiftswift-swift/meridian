@@ -10,6 +10,8 @@ python-multipart==0.0.32
 
 # Configuration and validation
 pydantic==2.13.5
+# EmailStr validation is a pydantic extra; the API validates sign-up addresses with it.
+email-validator==2.3.0
 pydantic-settings==2.15.0
 
 # Persistence

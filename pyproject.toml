@@ -45,12 +45,11 @@ select = [
 ignore = [
     "PLR0913", # argument count: composition roots legitimately take many collaborators
     "TRY003",  # the error taxonomy carries messages at the raise site on purpose
-    "S101",    # assert is the point of the test suite; re-enabled for app/ below
 ]
 
 [tool.ruff.lint.per-file-ignores]
 # Tests may assert, hardcode demo credentials and use long literal fixtures.
-"tests/**" = ["S105", "S106", "S311", "PLR2004", "ARG001", "ARG002"]
+"tests/**" = ["S101", "S105", "S106", "S311", "PLR2004", "ARG001", "ARG002", "PLC0415"]
 "scripts/**" = ["S311"]            # seed data is generated with random, not used for secrets
 "app/infra/migrations/**" = ["N999", "E501", "ARG001", "INP001"]
 

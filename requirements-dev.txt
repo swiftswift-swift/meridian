@@ -103,8 +103,12 @@ distlib==0.4.3
     # via virtualenv
 distro==1.9.0
     # via langsmith
+dnspython==2.8.0
+    # via email-validator
 durationpy==0.11
     # via kubernetes
+email-validator==2.3.0
+    # via -r requirements.in
 fastapi==0.142.2
     # via -r requirements.in
 filelock==4.0.10
@@ -181,6 +185,7 @@ identify==2.6.20
 idna==3.20
     # via
     #   anyio
+    #   email-validator
     #   httpx
     #   httpx2
     #   requests
