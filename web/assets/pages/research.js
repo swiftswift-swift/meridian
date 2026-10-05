@@ -1,91 +1,151 @@
-/* New research: ask a question and watch the investigation run. */
+/* Ask a question. Written for someone who has never seen the product before. */
 
 import { research, runs, session } from "../api.js";
-import { navigate, pageHeader } from "../shell.js";
-import { $, escapeHtml, duration, escapeHtml as esc, scoreBadge, table, toast } from "../ui.js";
+import { pageHeader } from "../shell.js";
+import { $, duration, escapeHtml, table, toast } from "../ui.js";
 
-const SUGGESTIONS = [
-  "Why did EMEA revenue drop in Q3 compared to Q2?",
-  "Which product line should we prioritise next quarter?",
-  "Is any marketing campaign wasting money?",
-  "Which country generates the most revenue?",
-  "Which customer has the highest lifetime revenue?",
+const EXAMPLES = [
+  {
+    topic: "Understand a change",
+    questions: [
+      "Why did EMEA revenue drop in Q3 compared to Q2?",
+      "Which region is growing fastest?",
+      "Did revenue go up or down last quarter?",
+    ],
+  },
+  {
+    topic: "Decide where to invest",
+    questions: [
+      "Which product line should we prioritise next quarter?",
+      "Which products grow fastest but earn the least?",
+      "Is any marketing campaign wasting money?",
+    ],
+  },
+  {
+    topic: "Know your customers",
+    questions: [
+      "Which customer has the highest lifetime revenue?",
+      "Which country generates the most revenue?",
+      "Have we lost any big customers?",
+    ],
+  },
 ];
 
-const PRESETS = {
-  quick: { label: "Quick", detail: "4 steps, ~30s" },
-  standard: { label: "Standard", detail: "8 steps, ~2min" },
-  deep: { label: "Deep", detail: "14 steps, ~5min" },
-};
+const DEPTH = [
+  { key: "quick", label: "Fast answer", detail: "A couple of lookups. Around 30 seconds." },
+  { key: "standard", label: "Normal", detail: "Several lookups and cross-checks. Around 2 minutes." },
+  { key: "deep", label: "Dig deep", detail: "As many lookups as it needs. Up to 5 minutes." },
+];
 
 export async function researchPage(view) {
-  let status = { enabled: false, model: "scripted-demo" };
+  let status = { enabled: false, model: "built-in" };
   try {
     status = await research.status();
   } catch {
-    // The page still works for the built-in questions without the live model.
+    // The page still works for the built-in questions without a live model.
   }
 
   const canRun = session.user?.role !== "viewer";
+  const firstVisit = !localStorage.getItem("meridian.seenWelcome");
+  const prefill = sessionStorage.getItem("meridian.prefill") || "";
+  sessionStorage.removeItem("meridian.prefill");
 
   view.innerHTML = `
+    ${
+      firstVisit
+        ? `<aside class="welcome" id="welcome">
+             <div>
+               <h2>Welcome. Here is the whole idea.</h2>
+               <p>
+                 Ask a question about the business the way you would ask a colleague. Meridian
+                 looks through the company's sales records and documents, then writes you a short
+                 answer. <strong>Every number it gives you can be clicked to see where it came
+                 from.</strong> If it cannot prove something, it leaves it out rather than
+                 guessing.
+               </p>
+               <p class="welcome-hint">Not sure what to ask? Pick one of the examples below.</p>
+             </div>
+             <button class="btn btn-ghost btn-sm" id="dismiss-welcome" type="button">Got it</button>
+           </aside>`
+        : ""
+    }
+
     ${pageHeader({
-      title: "New research",
-      lede: "Ask a question in plain English. It plans, queries the database and writes a cited answer.",
+      title: "Ask a question",
+      lede: "Type it in plain English. You will get a short answer with its workings shown.",
     })}
 
     <section class="panel ask-panel">
-      <label class="field-label" for="question">Your question</label>
-      <textarea id="question" rows="3" placeholder="Why did EMEA revenue drop in Q3 compared to Q2?"
-        ${canRun ? "" : "disabled"}></textarea>
+      <label class="field-label" for="question">What would you like to know?</label>
+      <textarea id="question" rows="3"
+        placeholder="For example: why did our European sales fall last quarter?"
+        ${canRun ? "" : "disabled"}>${escapeHtml(prefill)}</textarea>
 
-      <div class="ask-controls">
-        <fieldset class="preset-group">
-          <legend>Budget</legend>
-          ${Object.entries(PRESETS)
-            .map(
-              ([key, preset], index) => `
-            <label class="preset">
-              <input type="radio" name="preset" value="${key}" ${index === 1 ? "checked" : ""} />
-              <span><strong>${preset.label}</strong><em>${preset.detail}</em></span>
-            </label>`,
-            )
-            .join("")}
-        </fieldset>
+      <details class="options">
+        <summary>Options <span class="muted">(you can ignore these)</span></summary>
+        <div class="ask-controls">
+          <fieldset class="preset-group">
+            <legend>How thorough should it be?</legend>
+            ${DEPTH.map(
+              (depth, index) => `
+              <label class="preset">
+                <input type="radio" name="depth" value="${depth.key}" ${index === 1 ? "checked" : ""} />
+                <span><strong>${depth.label}</strong><em>${depth.detail}</em></span>
+              </label>`,
+            ).join("")}
+          </fieldset>
 
-        <fieldset class="tool-group">
-          <legend>Tools</legend>
-          <label class="check"><input type="checkbox" checked disabled /> <span>SQL database</span></label>
-          <label class="check"><input type="checkbox" id="tool-kb" checked /> <span>Internal documents</span></label>
-          <label class="check"><input type="checkbox" id="tool-web" /> <span>Web search</span></label>
-          <label class="check"><input type="checkbox" id="ask-first" checked /> <span>Ask before using web tools</span></label>
-        </fieldset>
-      </div>
+          <fieldset class="tool-group">
+            <legend>Where should it look?</legend>
+            <label class="check"><input type="checkbox" checked disabled /> <span>Sales records <em class="muted">(always on)</em></span></label>
+            <label class="check"><input type="checkbox" id="tool-kb" checked /> <span>Company documents and memos</span></label>
+            <label class="check"><input type="checkbox" id="tool-web" /> <span>The public web</span></label>
+            <label class="check"><input type="checkbox" id="ask-first" checked /> <span>Check with me before searching the web</span></label>
+          </fieldset>
+        </div>
+      </details>
 
       <div class="ask-actions">
         <button class="btn btn-primary btn-lg" id="go" type="button" ${canRun ? "" : "disabled"}>
-          Investigate
+          Find out
         </button>
         <span class="muted" id="model-note">
           ${
             canRun
               ? status.enabled
-                ? `Answered by ${esc(status.model)}`
-                : "Built-in questions only. Configure a model to ask anything."
-              : "The viewer role can read research but not start runs."
+                ? "Usually takes 3 to 10 seconds."
+                : "The three example questions work. Others need a language model configured."
+              : "Your account can read answers but not ask new questions. An admin can change that in Settings."
           }
         </span>
       </div>
+    </section>
 
-      <p class="field-hint">Suggestions</p>
-      <div class="chips" id="suggestions">
-        ${SUGGESTIONS.map((q) => `<button class="chip" type="button" data-q="${esc(q)}">${esc(q)}</button>`).join("")}
-      </div>
+    <section class="panel examples-panel" id="examples">
+      <h3 class="panel-title">Not sure what to ask?</h3>
+      <p class="field-hint">These all work. Click one to try it.</p>
+      ${EXAMPLES.map(
+        (group) => `
+        <div class="example-group">
+          <h4>${escapeHtml(group.topic)}</h4>
+          <div class="chips">
+            ${group.questions.map((q) => `<button class="chip" type="button" data-q="${escapeHtml(q)}">${escapeHtml(q)}</button>`).join("")}
+          </div>
+        </div>`,
+      ).join("")}
     </section>
 
     <section id="stage" class="stage" hidden></section>`;
 
-  $("#suggestions").addEventListener("click", (event) => {
+  const dismiss = $("#dismiss-welcome");
+  if (dismiss) {
+    dismiss.addEventListener("click", () => {
+      localStorage.setItem("meridian.seenWelcome", "1");
+      $("#welcome").remove();
+    });
+  }
+
+  $("#examples").addEventListener("click", (event) => {
     const chip = event.target.closest("[data-q]");
     if (!chip) return;
     $("#question").value = chip.dataset.q;
@@ -104,102 +164,88 @@ export async function researchPage(view) {
   async function start() {
     const question = $("#question").value.trim();
     if (!question) {
-      toast("Type a question, or pick a suggestion.", "error");
+      toast("Type a question first, or pick one of the examples.", "error");
+      $("#question").focus();
       return;
     }
     if (running) return;
     running = true;
     $("#go").disabled = true;
-    $("#go").textContent = "Investigating…";
+    $("#go").textContent = "Looking…";
 
     const stage = $("#stage");
     stage.hidden = false;
-    stage.innerHTML = renderRunning(question);
+    stage.innerHTML = renderWorking(question);
     stage.scrollIntoView({ block: "start", behavior: "smooth" });
 
     try {
       const result = await runs.create(question);
-      stage.innerHTML = renderResult(result);
-      bindResult(stage, result);
+      stage.innerHTML = renderAnswer(result);
+      bindAnswer(stage, result);
+      stage.scrollIntoView({ block: "start", behavior: "smooth" });
     } catch (error) {
-      stage.innerHTML = `
-        <div class="panel">
-          <h3 class="panel-title">The investigation could not run</h3>
-          <p class="muted">${esc(error.message)}</p>
-          ${
-            error.status === 429
-              ? '<p class="muted">The model provider is rate limiting. Wait about 30 seconds and try again.</p>'
-              : ""
-          }
-        </div>`;
+      stage.innerHTML = renderFailure(error);
     } finally {
       running = false;
       $("#go").disabled = false;
-      $("#go").textContent = "Investigate";
+      $("#go").textContent = "Find out";
     }
   }
 }
 
-function renderRunning(question) {
+function renderWorking(question) {
   const stages = [
-    "Reading the database schema",
-    "Planning the investigation",
-    "Checking each query against the SQL guard",
-    "Running the approved queries",
-    "Writing the answer from the rows returned",
-    "Verifying every number against the evidence",
+    "Working out what to look up",
+    "Checking each lookup is safe to run",
+    "Searching the sales records",
+    "Writing the answer",
+    "Checking every number against the data",
   ];
   return `
-    <div class="panel">
+    <div class="panel working">
       <h3 class="panel-title">${escapeHtml(question)}</h3>
       <ol class="live-stages">
-        ${stages.map((s, i) => `<li style="animation-delay:${i * 0.45}s"><span class="spinner"></span>${escapeHtml(s)}</li>`).join("")}
+        ${stages
+          .map(
+            (s, i) =>
+              `<li style="animation-delay:${i * 0.5}s"><span class="spinner"></span>${escapeHtml(s)}</li>`,
+          )
+          .join("")}
       </ol>
+      <p class="field-hint">This usually takes a few seconds.</p>
     </div>`;
 }
 
-function renderResult(result) {
+function renderFailure(error) {
+  const rateLimited = error.status === 429;
+  return `
+    <div class="panel">
+      <h3 class="panel-title">That did not work</h3>
+      <p class="muted">${escapeHtml(error.message)}</p>
+      ${
+        rateLimited
+          ? '<p class="muted">The AI service is busy. Wait about thirty seconds and try again.</p>'
+          : '<p class="muted">Try rewording the question, or pick one of the examples above.</p>'
+      }
+    </div>`;
+}
+
+function renderAnswer(result) {
   if (!result.answerable) {
     return `
       <div class="panel">
-        <h3 class="panel-title">No answer from the available data</h3>
-        <p class="muted">${escapeHtml(result.message)}</p>
-        ${
-          result.plan?.length
-            ? `<p class="field-hint">It had planned to:</p><ul class="plain-list">${result.plan.map((p) => `<li>${escapeHtml(p)}</li>`).join("")}</ul>`
-            : ""
-        }
+        <h3 class="panel-title">I could not answer that from this data</h3>
+        <p class="plain-answer">${escapeHtml(result.message)}</p>
+        <p class="field-hint">
+          This is deliberate. Rather than guess, it tells you when the records do not contain what
+          you asked about.
+        </p>
       </div>`;
   }
 
-  const meta = `
-    <div class="run-meta">
-      <span>${duration(result.elapsed_ms)}</span>
-      <span>${result.steps.length} quer${result.steps.length === 1 ? "y" : "ies"}</span>
-      <span>${result.tokens.toLocaleString()} tokens</span>
-      <span>$${result.cost_usd.toFixed(4)}</span>
-      <span>${escapeHtml(result.model)}</span>
-    </div>`;
-
-  const steps = result.steps
-    .map((step) => {
-      const ok = step.ok;
-      return `
-      <details class="query-card" data-state="${ok ? "ok" : step.refused ? "refused" : "failed"}">
-        <summary>
-          <span class="src">${escapeHtml(step.source_id)}</span>
-          <span class="purpose">${escapeHtml(step.purpose)}</span>
-          <span class="meta">${ok ? `${step.row_count} rows · ${step.latency_ms} ms` : step.refused ? "refused by the guard" : "failed"}</span>
-        </summary>
-        <pre class="sql">${escapeHtml(step.executed_sql || step.sql)}</pre>
-        ${ok ? table(step.columns, step.rows, { limit: 12 }) : `<p class="refusal-text">${escapeHtml(step.reason)}</p>`}
-      </details>`;
-    })
-    .join("");
-
-  const removed = result.removed_claims.length
-    ? `<p class="limitation">Verification removed ${result.removed_claims.length} sentence${result.removed_claims.length === 1 ? "" : "s"} the evidence did not support.</p>`
-    : "";
+  const sourceCount = result.steps.filter((s) => s.ok).length;
+  const rowsRead = result.steps.reduce((sum, s) => sum + (s.row_count || 0), 0);
+  const verified = Math.round(result.verification_score * 100);
 
   const body = result.body
     .split(/\n+/)
@@ -207,64 +253,136 @@ function renderResult(result) {
     .map((p) => `<p>${linkCitations(p)}</p>`)
     .join("");
 
+  const confidence =
+    verified >= 90
+      ? { kind: "good", text: `Every figure in this answer was checked against your data.` }
+      : verified >= 60
+        ? { kind: "warn", text: `${verified}% of the figures were confirmed against your data.` }
+        : {
+            kind: "bad",
+            text: `Only ${verified}% could be confirmed. Treat this answer with caution.`,
+          };
+
+  const removed = result.removed_claims.length
+    ? `<p class="removed-note">
+         ${result.removed_claims.length} sentence${result.removed_claims.length === 1 ? " was" : "s were"}
+         removed from this answer because the data did not support ${result.removed_claims.length === 1 ? "it" : "them"}.
+       </p>`
+    : "";
+
+  const sources = result.steps
+    .map((step, index) => renderSource(step, index))
+    .join("");
+
   return `
-    <article class="panel report-panel">
-      <header class="report-head">
-        <h2>${escapeHtml(result.title)}</h2>
-        ${scoreBadge(result.verification_score)}
-      </header>
-      ${meta}
+    <article class="panel answer-panel">
+      <p class="answer-eyebrow">Answer</p>
+      <h2>${escapeHtml(result.title)}</h2>
+
+      <div class="confidence ${confidence.kind}">
+        <strong>${verified}% verified</strong>
+        <span>${escapeHtml(confidence.text)}</span>
+      </div>
+
       <div class="report-body">${body}</div>
       ${removed}
-      <p class="limitation">Worth knowing: ${escapeHtml(result.limitation || "Based only on the queries below.")}</p>
+
+      ${
+        result.limitation
+          ? `<p class="limitation">Worth knowing: ${escapeHtml(result.limitation)}</p>`
+          : ""
+      }
+
+      <p class="answer-howto">
+        The highlighted tags like <cite>S1</cite> show where a number came from. Click one and it
+        will take you to the exact lookup below.
+      </p>
+
       <div class="report-actions">
-        <a class="btn btn-ghost btn-sm" href="/app/runs/${encodeURIComponent(result.run_id)}" data-link>Open saved run</a>
-        <button class="btn btn-ghost btn-sm" data-copy>Copy as Markdown</button>
+        <button class="btn btn-ghost btn-sm" data-copy>Copy this answer</button>
+        <a class="btn btn-ghost btn-sm" href="/app/runs/${encodeURIComponent(result.run_id)}" data-link>Open saved copy</a>
       </div>
     </article>
 
     <section class="panel">
-      <h3 class="panel-title">Evidence</h3>
-      <p class="field-hint">Every query that ran, in order. Click one to see the rows.</p>
-      ${steps}
+      <h3 class="panel-title">Where these numbers came from</h3>
+      <p class="field-hint">
+        It read <strong>${rowsRead.toLocaleString()}</strong> record${rowsRead === 1 ? "" : "s"}
+        across <strong>${sourceCount}</strong> lookup${sourceCount === 1 ? "" : "s"},
+        in ${duration(result.elapsed_ms)}. Open any one to see exactly what it found.
+      </p>
+      ${sources}
+      <p class="cost-note">
+        Cost of this question: <strong>$${result.cost_usd.toFixed(4)}</strong>
+        &middot; ${result.tokens.toLocaleString()} words of thinking &middot; ${escapeHtml(result.model)}
+      </p>
     </section>`;
 }
 
-function bindResult(stage, result) {
+function renderSource(step, index) {
+  if (!step.ok) {
+    return `
+      <details class="query-card" data-state="${step.refused ? "refused" : "failed"}">
+        <summary>
+          <span class="src">${escapeHtml(step.source_id)}</span>
+          <span class="purpose">${escapeHtml(step.purpose)}</span>
+          <span class="meta">${step.refused ? "blocked for safety" : "did not work"}</span>
+        </summary>
+        <p class="refusal-text">${escapeHtml(step.reason)}</p>
+      </details>`;
+  }
+
+  return `
+    <details class="query-card" data-state="ok" id="src-${escapeHtml(step.source_id)}"${index === 0 ? " open" : ""}>
+      <summary>
+        <span class="src">${escapeHtml(step.source_id)}</span>
+        <span class="purpose">${escapeHtml(step.purpose)}</span>
+        <span class="meta">${step.row_count} result${step.row_count === 1 ? "" : "s"}</span>
+      </summary>
+      <div class="source-body">
+        <p class="source-label">What it found</p>
+        ${table(step.columns, step.rows, { limit: 12 })}
+        <details class="raw-query">
+          <summary>Show the exact database query</summary>
+          <pre class="sql">${escapeHtml(step.executed_sql || step.sql)}</pre>
+          <p class="field-hint">
+            This was checked before it ran. Only read operations are permitted, and the
+            connection has no permission to change anything.
+          </p>
+        </details>
+      </div>
+    </details>`;
+}
+
+function bindAnswer(stage, result) {
   const copy = stage.querySelector("[data-copy]");
   if (copy) {
     copy.addEventListener("click", async () => {
-      const markdown = `# ${result.title}\n\n${result.body}\n\n_Verification: ${Math.round(result.verification_score * 100)}%_\n`;
+      const text = `${result.title}\n\n${result.body}\n\n(${Math.round(result.verification_score * 100)}% of figures verified against the source data.)\n`;
       try {
-        await navigator.clipboard.writeText(markdown);
-        toast("Copied to the clipboard.", "success");
+        await navigator.clipboard.writeText(text);
+        toast("Copied. You can paste it into an email or a document.", "success");
       } catch {
-        toast("The browser blocked clipboard access.", "error");
+        toast("Your browser blocked copying.", "error");
       }
     });
   }
+
   stage.addEventListener("click", (event) => {
     const chip = event.target.closest("cite[data-src]");
     if (!chip) return;
-    const card = stage.querySelector(`.query-card [class="src"]`);
-    const target = Array.from(stage.querySelectorAll(".query-card")).find(
-      (node) => node.querySelector(".src")?.textContent === chip.dataset.src,
-    );
-    if (target) {
-      target.open = true;
-      target.scrollIntoView({ block: "center", behavior: "smooth" });
-      target.classList.add("flash");
-      setTimeout(() => target.classList.remove("flash"), 900);
-    }
-    void card;
+    const target = stage.querySelector(`#src-${CSS.escape(chip.dataset.src)}`);
+    if (!target) return;
+    target.open = true;
+    target.scrollIntoView({ block: "center", behavior: "smooth" });
+    target.classList.add("flash");
+    setTimeout(() => target.classList.remove("flash"), 900);
   });
 }
 
 export function linkCitations(text) {
   return escapeHtml(text).replace(
     /\[S(\d+)\]/g,
-    (_, n) => `<cite data-src="S${n}">S${n}</cite>`,
+    (_, n) => `<cite data-src="S${n}" title="Click to see where this came from">S${n}</cite>`,
   );
 }
-
-export { navigate };

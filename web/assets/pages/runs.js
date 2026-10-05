@@ -20,17 +20,17 @@ import { linkCitations } from "./research.js";
 export async function runsPage(view) {
   view.innerHTML = `
     ${pageHeader({
-      title: "Runs",
-      lede: "Every investigation, newest first. Reports stay readable long after the run finished.",
-      actions: '<a class="btn btn-primary" href="/app/new" data-link>New research</a>',
+      title: "Past answers",
+      lede: "Every question you have asked, newest first. Answers stay readable, with their workings, long afterwards.",
+      actions: '<a class="btn btn-primary" href="/app/new" data-link>Ask a question</a>',
     })}
     <section class="panel">
       <div class="list-toolbar">
-        <input type="search" id="filter" placeholder="Filter by question or answer" aria-label="Filter runs" />
+        <input type="search" id="filter" placeholder="Search your past questions" aria-label="Filter runs" />
         <select id="status-filter" aria-label="Filter by status">
-          <option value="">All outcomes</option>
-          <option value="completed">Completed</option>
-          <option value="failed">Failed</option>
+          <option value="">Show everything</option>
+          <option value="completed">Answered</option>
+          <option value="failed">No answer found</option>
         </select>
       </div>
       <div id="list">${skeleton(4)}</div>
@@ -66,11 +66,11 @@ export async function runsPage(view) {
 
     if (!filtered.length) {
       $("#list").innerHTML = items.length
-        ? emptyState({ title: "Nothing matches", body: "Try a different filter." })
+        ? emptyState({ title: "Nothing matches that", body: "Try different words, or clear the filter." })
         : emptyState({
-            title: "No runs yet",
-            body: "Ask your first question and it will appear here with its evidence.",
-            actionLabel: "New research",
+            title: "You have not asked anything yet",
+            body: "Ask your first question and the answer will be saved here, with everything it looked up.",
+            actionLabel: "Ask a question",
             actionHref: "/app/new",
           });
       return;
@@ -90,7 +90,7 @@ export async function runsPage(view) {
               <div class="run-stats">
                 ${statusBadge(item.status)}
                 ${item.status === "completed" ? scoreBadge(item.verification_score) : ""}
-                <span>${item.query_count} quer${item.query_count === 1 ? "y" : "ies"}</span>
+                <span>${item.query_count} lookup${item.query_count === 1 ? "" : "s"}</span>
                 <span>${duration(item.duration_ms)}</span>
                 <span>$${item.cost_usd.toFixed(4)}</span>
                 <span class="run-age">${escapeHtml(since(item.created_at))}</span>
@@ -109,13 +109,13 @@ export async function runsPage(view) {
 }
 
 export async function runDetailPage(view, params) {
-  view.innerHTML = `${pageHeader({ title: "Run", lede: "Loading…" })}<div class="panel">${skeleton(5)}</div>`;
+  view.innerHTML = `${pageHeader({ title: "Answer", lede: "Loading…" })}<div class="panel">${skeleton(5)}</div>`;
 
   let run;
   try {
     run = await runs.get(params.id);
   } catch (error) {
-    view.innerHTML = `${pageHeader({ title: "Run" })}<div class="panel">${errorState(error, "Back to runs")}</div>`;
+    view.innerHTML = `${pageHeader({ title: "Answer" })}<div class="panel">${errorState(error, "Back to runs")}</div>`;
     view.querySelector("[data-retry]")?.addEventListener("click", () => navigate("/app/runs"));
     return;
   }
@@ -128,8 +128,8 @@ export async function runDetailPage(view, params) {
       title: report?.title || run.question,
       lede: run.question,
       actions: `
-        <button class="btn btn-ghost" id="share">Share link</button>
-        <button class="btn btn-ghost" id="rerun">Re-run</button>
+        <button class="btn btn-ghost" id="share">Copy share link</button>
+        <button class="btn btn-ghost" id="rerun">Ask again</button>
         <button class="btn btn-ghost danger" id="delete">Delete</button>`,
     })}
 
@@ -154,7 +154,7 @@ export async function runDetailPage(view, params) {
     ${
       report
         ? `<article class="panel report-panel">
-             <h3 class="panel-title">Answer</h3>
+             <h3 class="panel-title">The answer</h3>
              <div class="report-body">${report.body
                .split(/\n+/)
                .filter((p) => p.trim())
@@ -171,8 +171,8 @@ export async function runDetailPage(view, params) {
     }
 
     <section class="panel">
-      <h3 class="panel-title">Evidence</h3>
-      <p class="field-hint">The queries that ran, with the rows they returned.</p>
+      <h3 class="panel-title">Where these numbers came from</h3>
+      <p class="field-hint">Everything it looked up, with what it found. Click any one to open it.</p>
       ${run.observations
         .map(
           (observation) => `
@@ -180,7 +180,7 @@ export async function runDetailPage(view, params) {
           <summary>
             <span class="src">${escapeHtml(observation.source_id)}</span>
             <span class="purpose">${escapeHtml(observation.purpose)}</span>
-            <span class="meta">${observation.ok ? `${observation.row_count} rows · ${observation.latency_ms} ms` : "refused"}</span>
+            <span class="meta">${observation.ok ? `${observation.row_count} result${observation.row_count === 1 ? "" : "s"}` : "refused"}</span>
           </summary>
           <pre class="sql">${escapeHtml(observation.sql)}</pre>
           ${observation.ok ? table(observation.columns, observation.rows, { limit: 15 }) : `<p class="refusal-text">${escapeHtml(observation.reason)}</p>`}
@@ -205,7 +205,7 @@ export async function runDetailPage(view, params) {
     try {
       const { url } = await runs.share(params.id);
       await navigator.clipboard.writeText(url);
-      toast("Share link copied. Anyone with it can read this report.", "success");
+      toast("Link copied. Anyone you send it to can read this answer without signing in.", "success");
     } catch (error) {
       toast(error.message, "error");
     }
@@ -217,10 +217,10 @@ export async function runDetailPage(view, params) {
   });
 
   $("#delete").addEventListener("click", async () => {
-    if (!confirm("Delete this run and its report? This cannot be undone.")) return;
+    if (!confirm("Delete this answer and everything it looked up? This cannot be undone.")) return;
     try {
       await runs.remove(params.id);
-      toast("Run deleted.", "success");
+      toast("Answer deleted.", "success");
       navigate("/app/runs");
     } catch (error) {
       toast(error.message, "error");

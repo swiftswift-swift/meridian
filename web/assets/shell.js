@@ -85,11 +85,11 @@ export async function render() {
 }
 
 const NAV = [
-  { href: "/app/new", label: "New research", icon: "search", key: "new" },
-  { href: "/app/runs", label: "Runs", icon: "list", key: "runs" },
-  { href: "/app/data", label: "Data sources", icon: "database", key: "data" },
-  { href: "/app/insights", label: "Insights", icon: "chart", key: "insights", admin: true },
-  { href: "/app/evaluation", label: "Evaluation", icon: "shield", key: "evaluation" },
+  { href: "/app/new", label: "Ask a question", icon: "search", key: "new" },
+  { href: "/app/runs", label: "Past answers", icon: "list", key: "runs" },
+  { href: "/app/data", label: "What it can see", icon: "database", key: "data" },
+  { href: "/app/insights", label: "Usage", icon: "chart", key: "insights", admin: true },
+  { href: "/app/evaluation", label: "Safety checks", icon: "shield", key: "evaluation" },
   { href: "/app/settings", label: "Settings", icon: "cog", key: "settings" },
 ];
 

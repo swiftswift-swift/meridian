@@ -1,0 +1,249 @@
+/* Styles for the plain-language layer: the welcome panel, the answer card and its sources.
+
+   Separate file because these are presentation for people who have never seen the product, and
+   keeping them apart makes it obvious what can be removed once onboarding moves elsewhere. */
+
+/* --- first-run welcome ---------------------------------------------------- */
+
+.welcome {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  justify-content: space-between;
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: var(--radius);
+  padding: 22px 24px;
+  margin-bottom: 26px;
+}
+.welcome h2 {
+  font-size: 19px;
+  margin-bottom: 10px;
+}
+.welcome p {
+  margin: 0 0 10px;
+  color: var(--text-dim);
+  font-size: 14.5px;
+  line-height: 1.6;
+  max-width: 72ch;
+}
+.welcome strong {
+  color: var(--text);
+}
+.welcome-hint {
+  font-size: 13px !important;
+  color: var(--text-faint) !important;
+  margin: 0 !important;
+}
+
+/* --- the ask box ---------------------------------------------------------- */
+
+.ask-panel textarea {
+  font-size: 16px;
+  padding: 14px 16px;
+}
+
+.options {
+  margin: 16px 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+}
+.options > summary {
+  padding: 11px 15px;
+  cursor: pointer;
+  font-size: 13.5px;
+  color: var(--text-dim);
+}
+.options > summary:hover {
+  color: var(--text);
+}
+.options[open] > summary {
+  border-bottom: 1px solid var(--line);
+}
+.options .ask-controls {
+  padding: 16px;
+  margin: 0;
+}
+.check em {
+  font-style: normal;
+  font-size: 11.5px;
+}
+
+.example-group {
+  margin-bottom: 18px;
+}
+.example-group:last-child {
+  margin-bottom: 0;
+}
+.example-group h4 {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-faint);
+  margin: 0 0 9px;
+}
+
+.working .field-hint {
+  margin-top: 14px;
+  margin-bottom: 0;
+}
+
+/* --- the answer ----------------------------------------------------------- */
+
+.answer-panel {
+  border-top: 2px solid var(--accent);
+}
+.answer-eyebrow {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 8px;
+}
+.answer-panel h2 {
+  font-size: 22px;
+  line-height: 1.25;
+  margin-bottom: 16px;
+}
+
+/* A plain sentence about how much of the answer is backed by data, not a bare number. */
+.confidence {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  padding: 11px 15px;
+  border-radius: var(--radius);
+  margin-bottom: 18px;
+  font-size: 13.5px;
+}
+.confidence strong {
+  font-family: var(--mono);
+  font-size: 13px;
+}
+.confidence span {
+  color: var(--text-dim);
+}
+.confidence.good {
+  background: color-mix(in srgb, var(--good) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--good) 35%, transparent);
+}
+.confidence.good strong {
+  color: var(--good);
+}
+.confidence.warn {
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+}
+.confidence.warn strong {
+  color: var(--warn);
+}
+.confidence.bad {
+  background: color-mix(in srgb, var(--bad) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bad) 35%, transparent);
+}
+.confidence.bad strong {
+  color: var(--bad);
+}
+
+.answer-panel .report-body p {
+  font-size: 15.5px;
+  line-height: 1.7;
+  color: var(--text);
+}
+
+.plain-answer {
+  font-size: 15.5px;
+  line-height: 1.7;
+  color: var(--text);
+  margin: 0 0 12px;
+}
+
+.removed-note {
+  font-size: 13px;
+  color: var(--warn);
+  border-left: 2px solid var(--warn);
+  padding-left: 12px;
+  margin: 14px 0;
+}
+
+.answer-howto {
+  font-size: 12.5px;
+  color: var(--text-faint);
+  border-top: 1px dashed var(--line);
+  padding-top: 14px;
+  margin: 18px 0 0;
+}
+.answer-howto cite {
+  cursor: default;
+}
+
+.cost-note {
+  font-size: 12px;
+  color: var(--text-faint);
+  margin: 16px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+}
+.cost-note strong {
+  font-family: var(--mono);
+  color: var(--text-dim);
+}
+
+/* --- sources -------------------------------------------------------------- */
+
+.source-body {
+  padding: 0 14px 14px;
+  border-top: 1px solid var(--line);
+}
+.source-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-faint);
+  margin: 14px 0 9px;
+  font-family: var(--mono);
+}
+.source-body .table-wrap {
+  padding: 0;
+}
+
+/* The SQL is available but not the first thing a non-technical reader meets. */
+.raw-query {
+  margin-top: 14px;
+  border-top: 1px dashed var(--line);
+  padding-top: 12px;
+}
+.raw-query > summary {
+  font-size: 12.5px;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+.raw-query > summary:hover {
+  color: var(--accent);
+}
+.raw-query .sql {
+  margin: 10px 0 0;
+  padding: 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.raw-query .field-hint {
+  margin: 9px 0 0;
+}
+
+@media (max-width: 700px) {
+  .welcome {
+    flex-direction: column;
+  }
+  .answer-panel h2 {
+    font-size: 19px;
+  }
+}
