@@ -48,7 +48,6 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# Tests may assert, hardcode demo credentials and use long literal fixtures.
 # Tests assert, hardcode demo credentials, build SQL strings to attack the guard with, and
 # take fixtures they do not reference directly.
 "tests/**" = [
@@ -63,7 +62,11 @@ ignore = [
     "PLC0415",
     "E402",
 ]
-"scripts/**" = ["S311"]            # seed data is generated with random, not used for secrets
+# The seed script and the data generator build fixture data. `random` is a deterministic
+# generator here, not a security primitive, and the tuning constants that shape the planted
+# stories read better inline than hoisted into named globals.
+"scripts/**" = ["S311", "PLR2004"]
+"company_db/**" = ["S311", "PLR2004"]
 "app/infra/migrations/**" = ["N999", "E501", "ARG001", "INP001"]
 
 [tool.ruff.lint.isort]
