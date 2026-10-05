@@ -32,9 +32,9 @@ const EXAMPLES = [
 ];
 
 const DEPTH = [
-  { key: "quick", label: "Fast answer", detail: "A couple of lookups. Around 30 seconds." },
-  { key: "standard", label: "Normal", detail: "Several lookups and cross-checks. Around 2 minutes." },
-  { key: "deep", label: "Dig deep", detail: "As many lookups as it needs. Up to 5 minutes." },
+  { key: "quick", label: "Fast answer", detail: "A couple of searches. Around 30 seconds." },
+  { key: "standard", label: "Normal", detail: "Several searches and cross-checks. Around 2 minutes." },
+  { key: "deep", label: "Dig deep", detail: "As many searches as it needs. Up to 5 minutes." },
 ];
 
 export async function researchPage(view) {
@@ -196,7 +196,7 @@ export async function researchPage(view) {
 function renderWorking(question) {
   const stages = [
     "Working out what to look up",
-    "Checking each lookup is safe to run",
+    "Checking each search is safe to run",
     "Searching the sales records",
     "Writing the answer",
     "Checking every number against the data",
@@ -294,8 +294,7 @@ function renderAnswer(result) {
       }
 
       <p class="answer-howto">
-        The highlighted tags like <cite>S1</cite> show where a number came from. Click one and it
-        will take you to the exact lookup below.
+        Each tag like <cite>S1</cite> points to the data behind that number. Click a tag to see it.
       </p>
 
       <div class="report-actions">
@@ -307,47 +306,69 @@ function renderAnswer(result) {
     <section class="panel">
       <h3 class="panel-title">Where these numbers came from</h3>
       <p class="field-hint">
-        It read <strong>${rowsRead.toLocaleString()}</strong> record${rowsRead === 1 ? "" : "s"}
-        across <strong>${sourceCount}</strong> lookup${sourceCount === 1 ? "" : "s"},
-        in ${duration(result.elapsed_ms)}. Open any one to see exactly what it found.
+        It ran <strong>${sourceCount}</strong> search${sourceCount === 1 ? "" : "es"} against your
+        records and got <strong>${rowsRead.toLocaleString()}</strong> row${rowsRead === 1 ? "" : "s"}
+        back, in ${duration(result.elapsed_ms)}. <strong>Click any row below</strong> to see exactly
+        what that search returned.
       </p>
       ${sources}
-      <p class="cost-note">
-        Cost of this question: <strong>$${result.cost_usd.toFixed(4)}</strong>
-        &middot; ${result.tokens.toLocaleString()} words of thinking &middot; ${escapeHtml(result.model)}
-      </p>
+      <dl class="cost-note">
+        <div><dt>Cost</dt><dd><strong>$${result.cost_usd.toFixed(4)}</strong></dd></div>
+        <div><dt>AI model</dt><dd>${escapeHtml(result.model)}</dd></div>
+        <div><dt>AI work</dt><dd>${result.tokens.toLocaleString()} tokens</dd></div>
+      </dl>
     </section>`;
 }
+
+const CHEVRON =
+  '<svg class="chev" viewBox="0 0 12 12" aria-hidden="true" fill="none" stroke="currentColor" ' +
+  'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2l4 4-4 4"/></svg>';
 
 function renderSource(step, index) {
   if (!step.ok) {
     return `
       <details class="query-card" data-state="${step.refused ? "refused" : "failed"}">
         <summary>
+          ${CHEVRON}
           <span class="src">${escapeHtml(step.source_id)}</span>
           <span class="purpose">${escapeHtml(step.purpose)}</span>
-          <span class="meta">${step.refused ? "blocked for safety" : "did not work"}</span>
+          <span class="meta bad">${step.refused ? "blocked for safety" : "did not work"}</span>
         </summary>
-        <p class="refusal-text">${escapeHtml(step.reason)}</p>
+        <div class="source-body">
+          <p class="refusal-text">${escapeHtml(step.reason)}</p>
+        </div>
       </details>`;
   }
 
+  // A search that returned nothing is not a failure, but it must not look like a success
+  // either: the answer could not use it, and the reader should be able to see that at a glance.
+  const empty = step.row_count === 0;
   return `
-    <details class="query-card" data-state="ok" id="src-${escapeHtml(step.source_id)}"${index === 0 ? " open" : ""}>
+    <details class="query-card" data-state="${empty ? "empty" : "ok"}" id="src-${escapeHtml(step.source_id)}"${index === 0 && !empty ? " open" : ""}>
       <summary>
+        ${CHEVRON}
         <span class="src">${escapeHtml(step.source_id)}</span>
         <span class="purpose">${escapeHtml(step.purpose)}</span>
-        <span class="meta">${step.row_count} result${step.row_count === 1 ? "" : "s"}</span>
+        <span class="meta${empty ? " warn" : ""}">
+          ${empty ? "nothing found" : `${step.row_count} row${step.row_count === 1 ? "" : "s"}`}
+        </span>
+        <span class="open-hint">${empty ? "why" : "see the data"}</span>
       </summary>
       <div class="source-body">
-        <p class="source-label">What it found</p>
-        ${table(step.columns, step.rows, { limit: 12 })}
+        ${
+          empty
+            ? `<p class="empty-text">
+                 This search came back with no rows, so nothing from it was used in the answer.
+                 Usually that means the records do not cover what was asked for.
+               </p>`
+            : `<p class="source-label">What it found</p>${table(step.columns, step.rows, { limit: 12 })}`
+        }
         <details class="raw-query">
           <summary>Show the exact database query</summary>
           <pre class="sql">${escapeHtml(step.executed_sql || step.sql)}</pre>
           <p class="field-hint">
-            This was checked before it ran. Only read operations are permitted, and the
-            connection has no permission to change anything.
+            Checked before it ran. Only reading is permitted, and the connection has no
+            permission to change anything.
           </p>
         </details>
       </div>

@@ -474,10 +474,23 @@ legend {
   font-size: 13.5px;
   min-width: 180px;
 }
+.query-card[data-state="empty"] {
+  border-left-color: var(--warn);
+}
 .query-card .meta {
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--text-faint);
+  font-size: 12.5px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.query-card[data-state="empty"] .meta {
+  color: var(--warn);
+  font-weight: 600;
+}
+.query-card .empty-text {
+  margin: 0;
+  padding: 0 14px 14px;
+  font-size: 13px;
+  color: var(--text-dim);
 }
 .query-card .sql {
   margin: 0;
