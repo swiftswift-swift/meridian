@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import httpx
 import pytest
+from fastapi import FastAPI
 
 from app.domain.models import Role
 from app.services.auth_service import AuthenticatedUser
+from tests.conftest import AuthHeaderFactory
 
 pytestmark = pytest.mark.integration
 
@@ -101,7 +103,7 @@ async def test_token_signed_with_another_secret_is_rejected(client: httpx.AsyncC
 
 
 async def test_analyst_cannot_list_users(
-    client: httpx.AsyncClient, analyst: AuthenticatedUser, auth_header
+    client: httpx.AsyncClient, analyst: AuthenticatedUser, auth_header: AuthHeaderFactory
 ) -> None:
     response = await client.get(USERS, headers=auth_header(analyst))
     assert response.status_code == 403
@@ -109,7 +111,7 @@ async def test_analyst_cannot_list_users(
 
 
 async def test_admin_can_list_users(
-    client: httpx.AsyncClient, admin: AuthenticatedUser, auth_header
+    client: httpx.AsyncClient, admin: AuthenticatedUser, auth_header: AuthHeaderFactory
 ) -> None:
     response = await client.get(USERS, headers=auth_header(admin))
     assert response.status_code == 200
@@ -117,13 +119,16 @@ async def test_admin_can_list_users(
 
 
 async def test_viewer_cannot_list_users(
-    client: httpx.AsyncClient, viewer: AuthenticatedUser, auth_header
+    client: httpx.AsyncClient, viewer: AuthenticatedUser, auth_header: AuthHeaderFactory
 ) -> None:
     assert (await client.get(USERS, headers=auth_header(viewer))).status_code == 403
 
 
 async def test_admin_can_change_a_role(
-    client: httpx.AsyncClient, admin: AuthenticatedUser, viewer: AuthenticatedUser, auth_header
+    client: httpx.AsyncClient,
+    admin: AuthenticatedUser,
+    viewer: AuthenticatedUser,
+    auth_header: AuthHeaderFactory,
 ) -> None:
     response = await client.put(
         f"{USERS}/{viewer.id}/role", json={"role": "analyst"}, headers=auth_header(admin)
@@ -133,7 +138,7 @@ async def test_admin_can_change_a_role(
 
 
 async def test_admin_cannot_demote_themselves(
-    client: httpx.AsyncClient, admin: AuthenticatedUser, auth_header
+    client: httpx.AsyncClient, admin: AuthenticatedUser, auth_header: AuthHeaderFactory
 ) -> None:
     """Otherwise the last admin can lock every administrator out of the deployment."""
     response = await client.put(
@@ -151,7 +156,10 @@ async def test_demo_login_without_seeded_accounts_explains_the_fix(
 
 
 async def test_token_for_a_deleted_account_is_rejected(
-    client: httpx.AsyncClient, analyst: AuthenticatedUser, auth_header, app
+    client: httpx.AsyncClient,
+    analyst: AuthenticatedUser,
+    auth_header: AuthHeaderFactory,
+    app: FastAPI,
 ) -> None:
     """A valid signature is not enough; the account must still exist."""
     header = auth_header(analyst)
@@ -169,7 +177,7 @@ async def test_token_for_a_deleted_account_is_rejected(
 
 
 async def test_role_escalation_via_a_forged_claim_is_ignored(
-    client: httpx.AsyncClient, analyst: AuthenticatedUser, app
+    client: httpx.AsyncClient, analyst: AuthenticatedUser, app: FastAPI
 ) -> None:
     """The role in the token is not trusted; the database row is authoritative."""
     import jwt
@@ -203,7 +211,7 @@ async def test_readiness_reports_its_dependencies(client: httpx.AsyncClient) -> 
     assert body["checks"]["database"] == "ok"
 
 
-async def test_role_hierarchy_is_respected(auth_service, database) -> None:
+async def test_role_hierarchy_is_respected() -> None:
     """Admin satisfies analyst-level requirements, and viewer does not."""
     from app.domain.rbac import can_start_run, can_view_insights
 

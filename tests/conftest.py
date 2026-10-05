@@ -15,6 +15,7 @@ import os
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Protocol
 
 import httpx
 import pytest
@@ -134,8 +135,14 @@ async def _make_user(app: FastAPI, email: str, name: str, role: Role) -> Authent
     return user
 
 
+class AuthHeaderFactory(Protocol):
+    """Builds an Authorization header for a user. Named so tests can annotate the fixture."""
+
+    def __call__(self, user: AuthenticatedUser) -> dict[str, str]: ...
+
+
 @pytest.fixture
-def auth_header(app: FastAPI):
+def auth_header(app: FastAPI) -> AuthHeaderFactory:
     """Build an Authorization header for a given user."""
     container: ServiceContainer = app.state.container
     service = AuthService(container.database, container.settings)
