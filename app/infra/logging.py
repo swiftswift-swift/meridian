@@ -121,7 +121,9 @@ def configure_logging(settings: Settings) -> None:
             renderer,
         ],
     )
-    handler = logging.StreamHandler(sys.stderr)
+    # stdout, not stderr: PowerShell 5.1 wraps a native command's stderr in ErrorRecords, which
+    # makes ordinary structured log lines look like a failed command to tasks.ps1.
+    handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(formatter)
 
     root = logging.getLogger()
