@@ -34,6 +34,22 @@ logger = structlog.get_logger(__name__)
 MAX_QUERIES = 4
 MAX_ROWS_IN_PROMPT = 25
 MAX_QUESTION_CHARS = 500
+MAX_ENUM_VALUES = 12
+
+# Columns whose contents a planner cannot guess from the schema alone. Everything here is
+# low-cardinality, so listing the values costs a few hundred tokens and removes a whole class of
+# silent zero-row queries.
+ENUM_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("orders", "status"),
+    ("orders", "currency_code"),
+    ("regions", "name"),
+    ("regions", "code"),
+    ("customers", "segment"),
+    ("product_lines", "name"),
+    ("product_lines", "category"),
+    ("marketing_spend", "channel"),
+    ("marketing_spend", "campaign"),
+)
 
 PLANNER_SYSTEM = """You are a careful business data analyst.
 
@@ -49,6 +65,10 @@ Rules:
 - Aggregate in SQL rather than returning raw rows. Keep result sets small.
 - Round in SQL: use ROUND(x, 2) for money and express a share as ROUND(100.0 * part / whole, 1)
   so it is already a percentage.
+- Use ONLY the literal values listed under "Values" below when filtering those columns. Guessing
+  a value that does not exist returns no rows and silently produces a wrong conclusion.
+- Prefer substr(order_date, 1, 7) or BETWEEN on full dates for period filters. order_date is text
+  in YYYY-MM-DD form.
 - If the schema cannot answer the question, return an empty queries list and say why in
   "feasibility".
 - {coverage}
@@ -203,6 +223,32 @@ class ResearchService:
 
     # --- stages -------------------------------------------------------------------
 
+    async def _value_hints(self) -> str:
+        """List the actual values of the columns a planner would otherwise guess at.
+
+        A schema gives names, not contents. Without this the model writes
+        `status = 'completed'` when the data says `'fulfilled'`, the query matches nothing, and
+        the run reports that the records do not contain revenue figures -- which is wrong, and
+        worse than an error because it looks like an answer.
+
+        Only low-cardinality columns are listed, and the list is capped, so the prompt cost stays
+        a few hundred tokens regardless of how large the tables are.
+        """
+        lines: list[str] = []
+        for table, column in ENUM_COLUMNS:
+            result = await self._queries.run(
+                f"SELECT DISTINCT {column} AS value FROM {table} "  # noqa: S608 - fixed list
+                f"ORDER BY {column} LIMIT {MAX_ENUM_VALUES}"
+            )
+            if not result.ok or not result.rows:
+                continue
+            values = ", ".join(
+                f"'{row['value']}'" for row in result.rows if row["value"] is not None
+            )
+            if values:
+                lines.append(f"- {table}.{column} is one of: {values}")
+        return "\n".join(lines)
+
     async def _coverage_hint(self) -> str:
         """Tell the planner which period the data covers.
 
@@ -224,6 +270,7 @@ class ResearchService:
 
     async def _plan(self, question: str) -> tuple[dict[str, Any], TokenUsage]:
         coverage = await self._coverage_hint()
+        values = await self._value_hints()
         result = await self._chat.complete(
             [
                 ChatMessage(
@@ -232,7 +279,11 @@ class ResearchService:
                 ),
                 ChatMessage(
                     role="user",
-                    content=f"Schema:\n{schema_description()}\n\nQuestion: {question}",
+                    content=(
+                        f"Schema:\n{schema_description()}\n\n"
+                        f"Values:\n{values}\n\n"
+                        f"Question: {question}"
+                    ),
                 ),
             ],
             response_format={"type": "json_object"},
