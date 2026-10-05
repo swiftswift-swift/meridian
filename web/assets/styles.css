@@ -1297,3 +1297,10 @@ details p {
 .tool-card[data-state="failed"] {
   border-left-color: var(--bad);
 }
+
+/* The ask box and the run window are one column, not two grid items. */
+.hero-right {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
