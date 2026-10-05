@@ -57,7 +57,7 @@ export async function insightsPage(view) {
       <section class="panel">
         <h3 class="panel-title">Detail</h3>
         <dl class="kv">
-          <div><dt>Average lookups per question</dt><dd>${summary.avg_steps}</dd></div>
+          <div><dt>Average searches per question</dt><dd>${summary.avg_steps}</dd></div>
           <div><dt>Stopped at the spending limit</dt><dd>${Math.round(summary.budget_exhausted_rate * 100)}%</dd></div>
           <div><dt>Answered</dt><dd>${summary.completed}</dd></div>
           <div><dt>No answer found</dt><dd>${summary.failed}</dd></div>

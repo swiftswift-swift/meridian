@@ -90,7 +90,7 @@ export async function runsPage(view) {
               <div class="run-stats">
                 ${statusBadge(item.status)}
                 ${item.status === "completed" ? scoreBadge(item.verification_score) : ""}
-                <span>${item.query_count} lookup${item.query_count === 1 ? "" : "s"}</span>
+                <span>${item.query_count} search${item.query_count === 1 ? "" : "es"}</span>
                 <span>${duration(item.duration_ms)}</span>
                 <span>$${item.cost_usd.toFixed(4)}</span>
                 <span class="run-age">${escapeHtml(since(item.created_at))}</span>
@@ -172,15 +172,22 @@ export async function runDetailPage(view, params) {
 
     <section class="panel">
       <h3 class="panel-title">Where these numbers came from</h3>
-      <p class="field-hint">Everything it looked up, with what it found. Click any one to open it.</p>
+      <p class="field-hint">Every search it ran on your data. Click one to see the rows it found.</p>
       ${run.observations
         .map(
           (observation) => `
-        <details class="query-card" data-state="${observation.ok ? "ok" : "refused"}" id="src-${escapeHtml(observation.source_id)}">
+        <details class="query-card" data-state="${!observation.ok ? "refused" : observation.row_count === 0 ? "empty" : "ok"}" id="src-${escapeHtml(observation.source_id)}">
           <summary>
+            <svg class="chev" viewBox="0 0 12 12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2l4 4-4 4"/></svg>
             <span class="src">${escapeHtml(observation.source_id)}</span>
             <span class="purpose">${escapeHtml(observation.purpose)}</span>
-            <span class="meta">${observation.ok ? `${observation.row_count} result${observation.row_count === 1 ? "" : "s"}` : "refused"}</span>
+            <span class="meta">${
+              !observation.ok
+                ? "blocked for safety"
+                : observation.row_count === 0
+                  ? "No data found"
+                  : `${observation.row_count} row${observation.row_count === 1 ? "" : "s"} found`
+            }</span>
           </summary>
           <pre class="sql">${escapeHtml(observation.sql)}</pre>
           ${observation.ok ? table(observation.columns, observation.rows, { limit: 15 }) : `<p class="refusal-text">${escapeHtml(observation.reason)}</p>`}

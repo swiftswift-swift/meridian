@@ -1,0 +1,128 @@
+/* Source cards.
+
+   The problem these solve: a row that silently expands looks like a static bar, so people never
+   discover the evidence. Every card carries a chevron, a hover state and a plain "see the data"
+   prompt, and a search that returned nothing looks different from one that worked. */
+
+.query-card {
+  transition:
+    border-color 0.14s,
+    background 0.14s;
+}
+.query-card > summary {
+  list-style: none;
+  user-select: none;
+  align-items: center;
+}
+.query-card > summary::-webkit-details-marker {
+  display: none;
+}
+.query-card > summary:hover {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+.query-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+}
+
+/* The affordance: a chevron that turns as the card opens. */
+.query-card .chev {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  color: var(--text-faint);
+  transition: transform 0.16s ease;
+}
+.query-card[open] > summary .chev {
+  transform: rotate(90deg);
+  color: var(--accent);
+}
+
+.query-card .meta {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+.query-card .meta.warn {
+  color: var(--warn);
+}
+.query-card .meta.bad {
+  color: var(--bad);
+}
+
+/* A spelled-out prompt, because an icon alone does not tell a first-time reader what will
+   happen. It is hidden once the card is open, where it would be stating the obvious. */
+.open-hint {
+  font-size: 11.5px;
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 999px;
+  padding: 2px 10px;
+  white-space: nowrap;
+}
+.query-card[open] > summary .open-hint {
+  display: none;
+}
+.query-card > summary:hover .open-hint {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+/* A search that found nothing: visibly different from one that worked. */
+.query-card[data-state="empty"] {
+  border-left-color: var(--warn);
+  opacity: 0.88;
+}
+.query-card[data-state="empty"] .src {
+  background: var(--warn);
+}
+.empty-text {
+  color: var(--text-dim);
+  font-size: 13.5px;
+  margin: 14px 0 0;
+  line-height: 1.6;
+}
+
+.source-body {
+  padding: 0 14px 14px;
+}
+.query-card[open] > .source-body {
+  border-top: 1px solid var(--line);
+}
+
+/* Cost and model, as a definition list rather than a run-on sentence. */
+.cost-note {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 26px;
+  margin: 18px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--line-soft);
+}
+.cost-note > div {
+  display: grid;
+  gap: 2px;
+}
+.cost-note dt {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-faint);
+}
+.cost-note dd {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+.cost-note strong {
+  color: var(--text);
+}
+
+@media (max-width: 640px) {
+  .open-hint {
+    display: none;
+  }
+  .query-card .purpose {
+    min-width: 0;
+  }
+}
