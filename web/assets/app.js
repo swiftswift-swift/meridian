@@ -492,15 +492,7 @@ The model is being given the database schema and asked for a plan and the SQL to
       if (step.ok) {
         state.sources[step.source_id] = {
           title: `${step.source_id} — sql_query (read-only, ${step.latency_ms} ms)`,
-          body: `${step.executed_sql}
-
-${step.columns.join(" | ")}
-${"-".repeat(Math.min(step.columns.join(" | ").length, 90))}
-${step.rows
-            .slice(0, 25)
-            .map((row) => step.columns.map((c) => formatCell(row[c])).join(" | "))
-            .join("
-")}`,
+          body: renderSourceBody(step),
         };
         closeToolCard(card, {
           meta: `${step.row_count} rows · ${step.latency_ms} ms`,
@@ -520,8 +512,7 @@ ${step.rows
       ? `<p class="limitation">Verification removed ${answer.removed_claims.length} sentence${answer.removed_claims.length === 1 ? "" : "s"} that the evidence did not support.</p>`
       : "";
     const paragraphs = answer.body
-      .split(/
-+/)
+      .split(/\n+/)
       .filter((p) => p.trim())
       .map((p) => `<p>${linkCitations(p)}</p>`)
       .join("");
@@ -543,6 +534,17 @@ ${step.rows
     report.hidden = false;
     report.scrollIntoView({ block: "nearest", behavior: "smooth" });
     $("#demo-caption").textContent = `Answered in ${(answer.elapsed_ms / 1000).toFixed(1)}s for $${answer.cost_usd.toFixed(4)}.`;
+  }
+
+  // Lay the rows out as a fixed-width table for the source panel.
+  function renderSourceBody(step) {
+    const header = step.columns.join(" | ");
+    const divider = "-".repeat(Math.min(header.length, 90));
+    const rows = step.rows
+      .slice(0, 25)
+      .map((row) => step.columns.map((c) => formatCell(row[c])).join(" | "))
+      .join("\n");
+    return [step.executed_sql, "", header, divider, rows].join("\n");
   }
 
   // Turn [S1] markers into clickable chips without trusting the model's text as HTML.

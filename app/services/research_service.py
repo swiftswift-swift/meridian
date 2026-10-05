@@ -51,6 +51,7 @@ Rules:
   so it is already a percentage.
 - If the schema cannot answer the question, return an empty queries list and say why in
   "feasibility".
+- {coverage}
 
 Return ONLY JSON of this shape:
 {{
@@ -69,6 +70,10 @@ Rules:
 - Every sentence that states a fact must cite its evidence inline as [S1], [S2] and so on.
 - Only use numbers that appear in the evidence. Never estimate, round beyond what is shown, or
   carry a figure over from general knowledge.
+- Prefer quoting the figures as they appear. Write a change as "fell from $9,468,359 to
+  $8,926,124", not as "fell by $542,235", because the difference is not itself in the evidence
+  and a verifier checking the evidence will reject it. A percentage derived from two cited
+  figures is acceptable; an absolute difference is not.
 - If the evidence does not support a claim, do not make the claim.
 - Lead with the answer, then the reason. Two or three short paragraphs at most.
 - Plain business English. No preamble, no headings, no bullet lists.
@@ -198,10 +203,33 @@ class ResearchService:
 
     # --- stages -------------------------------------------------------------------
 
+    async def _coverage_hint(self) -> str:
+        """Tell the planner which period the data covers.
+
+        Without it, a question naming "Q4" with no year is resolved against the current year,
+        which has no rows. The model then correctly but uselessly reports that the data is
+        missing. Resolving a relative period needs knowledge only the database has.
+        """
+        result = await self._queries.run(
+            "SELECT MIN(order_date) AS first_day, MAX(order_date) AS last_day FROM orders"
+        )
+        if not result.ok or not result.rows:
+            return "The date range covered by the data is unknown."
+        row = result.rows[0]
+        return (
+            f"The orders table covers {row['first_day']} to {row['last_day']}. If the question "
+            "names a period without a year, resolve it inside that range and prefer the most "
+            "recent match. Never query dates outside it."
+        )
+
     async def _plan(self, question: str) -> tuple[dict[str, Any], TokenUsage]:
+        coverage = await self._coverage_hint()
         result = await self._chat.complete(
             [
-                ChatMessage(role="system", content=PLANNER_SYSTEM.format(max_queries=MAX_QUERIES)),
+                ChatMessage(
+                    role="system",
+                    content=PLANNER_SYSTEM.format(max_queries=MAX_QUERIES, coverage=coverage),
+                ),
                 ChatMessage(
                     role="user",
                     content=f"Schema:\n{schema_description()}\n\nQuestion: {question}",
