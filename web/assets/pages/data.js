@@ -49,14 +49,14 @@ GROUP BY pl.name, pl.gross_margin_pct`,
 export async function dataPage(view) {
   view.innerHTML = `
     ${pageHeader({
-      title: "Data sources",
-      lede: "What the assistant can read, and proof of what it cannot do to it.",
+      title: "What it can see",
+      lede: "The records and documents Meridian is allowed to read — and proof of what it cannot do to them.",
     })}
     <div class="tabs" role="tablist">
-      <button class="tab active" data-tab="schema" role="tab">Database</button>
-      <button class="tab" data-tab="documents" role="tab">Documents</button>
-      <button class="tab" data-tab="guard" role="tab">Guard playground</button>
-      <button class="tab" data-tab="health" role="tab">Tool health</button>
+      <button class="tab active" data-tab="schema" role="tab">Sales records</button>
+      <button class="tab" data-tab="documents" role="tab">Company documents</button>
+      <button class="tab" data-tab="guard" role="tab">Try to break it</button>
+      <button class="tab" data-tab="health" role="tab">How it is set up</button>
     </div>
     <div id="tab-body">${skeleton(5)}</div>`;
 
@@ -91,8 +91,9 @@ async function renderSchema(host) {
     <section class="panel">
       <h3 class="panel-title">Northwind Analytics</h3>
       <p class="field-hint">
-        ${tables.length} tables, ${total.toLocaleString()} rows. This database is opened read-only;
-        the application's own data lives elsewhere and the assistant cannot reach it.
+        ${total.toLocaleString()} records across ${tables.length} categories, covering two years of
+        trading. Meridian can read all of it and change none of it: this database is opened in
+        read-only mode, and your account details live in a completely separate one it cannot reach.
       </p>
       <div class="schema-grid">
         ${tables
@@ -101,11 +102,11 @@ async function renderSchema(host) {
           <article class="schema-card" data-table="${escapeHtml(t.name)}">
             <header>
               <strong>${escapeHtml(t.name)}</strong>
-              <span>${t.row_count.toLocaleString()} rows</span>
+              <span>${t.row_count.toLocaleString()} records</span>
             </header>
             <p>${escapeHtml(t.description)}</p>
             <div class="columns">${t.columns.map((c) => `<code>${escapeHtml(c)}</code>`).join("")}</div>
-            <button class="btn btn-ghost btn-sm" data-sample="${escapeHtml(t.name)}">Sample rows</button>
+            <button class="btn btn-ghost btn-sm" data-sample="${escapeHtml(t.name)}">Show me a few</button>
             <div class="sample" hidden></div>
           </article>`,
           )
@@ -120,12 +121,12 @@ async function renderSchema(host) {
     const target = card.querySelector(".sample");
     if (!target.hidden) {
       target.hidden = true;
-      button.textContent = "Sample rows";
+      button.textContent = "Show me a few";
       return;
     }
     target.hidden = false;
     target.innerHTML = skeleton(2);
-    button.textContent = "Hide rows";
+    button.textContent = "Hide";
     try {
       const result = await data.sample(button.dataset.sample);
       target.innerHTML = result.ok
@@ -151,8 +152,10 @@ async function renderDocuments(host) {
     <section class="panel">
       <h3 class="panel-title">Knowledge base</h3>
       <p class="field-hint">
-        ${documents.length} documents, ${documents.reduce((s, d) => s + d.chunk_count, 0)} searchable
-        passages. ${flagged} flagged as containing text addressed to the assistant.
+        ${documents.length} internal documents Meridian can search — memos, reviews and product
+        briefs. ${flagged} of them ${flagged === 1 ? "has" : "have"} been flagged as containing
+        hidden text trying to give Meridian instructions. It reads them for information and
+        ignores the instructions.
       </p>
       <div class="doc-list">
         ${documents
@@ -162,11 +165,11 @@ async function renderDocuments(host) {
             <header>
               <strong>${escapeHtml(doc.title)}</strong>
               <span class="doc-type">${escapeHtml(doc.doc_type)}</span>
-              ${doc.is_suspicious ? '<span class="badge badge-bad">injection detected</span>' : ""}
+              ${doc.is_suspicious ? '<span class="badge badge-bad">contains hidden instructions</span>' : ""}
             </header>
             ${doc.is_suspicious ? `<p class="warn-text">${escapeHtml(doc.suspicion_reason)}</p>` : ""}
             <p class="doc-excerpt">${escapeHtml(doc.excerpt)}…</p>
-            <footer>${doc.chunk_count} passage${doc.chunk_count === 1 ? "" : "s"}</footer>
+            <footer>${doc.chunk_count} searchable section${doc.chunk_count === 1 ? "" : "s"}</footer>
           </article>`,
           )
           .join("")}
@@ -189,18 +192,20 @@ async function renderGuard(host) {
 
   host.innerHTML = `
     <section class="panel">
-      <h3 class="panel-title">Guard playground</h3>
+      <h3 class="panel-title">Try to break it yourself</h3>
       <p class="field-hint">
-        This runs the real guard against the real read-only database. Try to make it do damage.
+        These buttons send real commands to the real database. The green ones are ordinary
+        questions. The red ones try to destroy or steal data — watch each be refused, with a
+        reason you can read.
       </p>
       <div class="playground">
         <div>
           <div class="pg-presets">${groups.join("")}</div>
           <label class="sr-only" for="sql">SQL</label>
           <textarea id="sql" rows="6" spellcheck="false">SELECT code, name FROM regions</textarea>
-          <div class="pg-actions"><button class="btn btn-primary" id="run-sql">Run it</button></div>
+          <div class="pg-actions"><button class="btn btn-primary" id="run-sql">Send it</button><span class="muted">Or edit the box and write your own.</span></div>
         </div>
-        <div class="pg-result" id="pg-result"><p class="muted">Results appear here.</p></div>
+        <div class="pg-result" id="pg-result"><p class="muted">Pick a button to see what happens.</p></div>
       </div>
     </section>`;
 
@@ -225,12 +230,12 @@ async function renderGuard(host) {
       panel.innerHTML =
         result.refused || !result.ok
           ? `<div class="refusal">
-               <h4>${result.refused ? "Refused by the SQL guard" : "The query did not run"}</h4>
+               <h4>${result.refused ? "Blocked — and here is why" : "That did not run"}</h4>
                ${result.guardrail ? `<div class="pg-meta"><span>guardrail: ${escapeHtml(result.guardrail)}</span></div>` : ""}
                <p class="muted">${escapeHtml(result.reason)}</p>
              </div>`
           : `<div class="pg-meta">
-               <span>${result.row_count} rows</span>
+               <span>${result.row_count} results</span>
                <span>${result.latency_ms} ms</span>
                <span>row cap ${result.limit_applied ?? "-"}</span>
                <span>tables: ${escapeHtml(result.referenced_tables.join(", ") || "-")}</span>
@@ -252,26 +257,26 @@ async function renderHealth(host) {
     return;
   }
   const rows = [
-    ["Language model", providers.model, providers.scripted ? "built-in, deterministic" : "live provider"],
-    ["Embeddings", providers.embedding_provider, providers.embeddings_offline ? "offline, no download" : "remote"],
-    ["External tools", providers.tools_mode, providers.tools_live ? "live network calls" : "recorded fixtures"],
-    ["Queue", providers.queue, providers.queue === "redis" ? "shared" : "single process"],
-    ["Cache", providers.cache, providers.cache === "redis" ? "shared" : "single process"],
+    ["The AI model", providers.model, providers.scripted ? "built in, no internet needed" : "live AI service"],
+    ["Document search", providers.embedding_provider, providers.embeddings_offline ? "runs on this machine" : "remote service"],
+    ["Outside sources", providers.tools_mode, providers.tools_live ? "live web and APIs" : "recorded, no internet"],
+    ["Job handling", providers.queue, providers.queue === "redis" ? "shared across servers" : "this server only"],
+    ["Saved results", providers.cache, providers.cache === "redis" ? "shared across servers" : "this server only"],
   ];
   host.innerHTML = `
     <section class="panel">
-      <h3 class="panel-title">Tool health</h3>
-      <p class="field-hint">What this deployment is actually wired to, read from the running process.</p>
+      <h3 class="panel-title">How this copy is set up</h3>
+      <p class="field-hint">Read live from the running program, not written here by hand.</p>
       <table class="health-table">
-        <thead><tr><th>Component</th><th>Configured</th><th>Mode</th></tr></thead>
+        <thead><tr><th>Part</th><th>Using</th><th>What that means</th></tr></thead>
         <tbody>
           ${rows.map(([a, b, c]) => `<tr><td>${escapeHtml(a)}</td><td><code>${escapeHtml(b)}</code></td><td class="muted">${escapeHtml(c)}</td></tr>`).join("")}
         </tbody>
       </table>
       <p class="field-hint">
         ${providers.fully_offline
-          ? "This process makes no outbound network calls at all."
-          : "This process can make outbound calls to the configured model provider."}
+          ? "This copy makes no internet connections at all. Nothing leaves this machine."
+          : "This copy sends your questions to the AI service named above, and nowhere else."}
       </p>
     </section>`;
 }
