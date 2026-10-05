@@ -155,7 +155,7 @@ _ACCEPTABLE_VERDICTS = frozenset({ClaimVerdict.SUPPORTED, ClaimVerdict.NEEDS_MOD
 
 def _check_numbers_against_sources(claim: Claim, sources: list[Observation]) -> Claim:
     """Confirm the sentence's numbers appear in the cited evidence."""
-    numbers = extract_numbers(claim.sentence)
+    numbers = extract_claim_values(claim.sentence)
     if not numbers:
         # No numeric assertion to check deterministically; the model reviews the wording.
         return claim.decided(ClaimVerdict.NEEDS_MODEL_REVIEW, "No numeric claim to check.")
@@ -163,9 +163,14 @@ def _check_numbers_against_sources(claim: Claim, sources: list[Observation]) -> 
     haystack = " ".join(_flatten_for_matching(source) for source in sources)
     source_numbers = extract_numbers(haystack)
 
-    unmatched = [n for n in numbers if not _number_present(n, source_numbers)]
+    # Each entry is the set of forms one written value may legitimately take, so a value counts
+    # as found when any form appears. Requiring every form would fail "7.1%" against a stored
+    # -0.071 and vice versa.
+    unmatched = [
+        forms for forms in numbers if not any(_number_present(f, source_numbers) for f in forms)
+    ]
     if unmatched:
-        shown = ", ".join(f"{n:g}" for n in unmatched[:3])
+        shown = ", ".join(f"{forms[0]:g}" for forms in unmatched[:3])
         return claim.decided(
             ClaimVerdict.UNSUPPORTED_NUMBER_NOT_FOUND,
             f"The value(s) {shown} do not appear in {', '.join(claim.source_ids)}.",
@@ -173,40 +178,64 @@ def _check_numbers_against_sources(claim: Claim, sources: list[Observation]) -> 
     return claim.decided(ClaimVerdict.SUPPORTED, "Every numeric claim appears in the evidence.")
 
 
-def extract_numbers(text: str) -> list[float]:
-    """Pull comparable numeric values out of text, ignoring citation markers."""
+def extract_claim_values(text: str) -> list[tuple[float, ...]]:
+    """Pull the written values out of a sentence, each with its acceptable alternative forms.
+
+    A percentage is returned as both 7.1 and 0.071, because a query may store either. They are
+    alternatives for one written value, not two separate claims.
+    """
     without_citations = CITATION_PATTERN.sub(" ", text)
-    values: list[float] = []
+    values: list[tuple[float, ...]] = []
     for raw in NUMBER_PATTERN.findall(without_citations):
         token = raw.strip()
-        is_percent = token.endswith("%")
-        cleaned = token.rstrip("%").strip().lstrip("$").replace(",", "")
-        if not cleaned or cleaned in {"-", "."}:
+        parsed = _parse_number(token)
+        if parsed is None:
             continue
-        try:
-            value = float(cleaned)
-        except ValueError:
-            continue
-        values.append(value)
-        if is_percent:
-            # A source may store 0.082 where the report writes 8.2%; both forms are accepted.
-            values.append(value / 100)
+        values.append((parsed, parsed / 100) if token.endswith("%") else (parsed,))
     return values
 
 
+def extract_numbers(text: str) -> list[float]:
+    """Every numeric value in the text, flattened. Used to build the evidence haystack."""
+    return [value for forms in extract_claim_values(text) for value in forms]
+
+
+def _parse_number(token: str) -> float | None:
+    cleaned = token.rstrip("%").strip().lstrip("$").replace(",", "")
+    if not cleaned or cleaned in {"-", ".", "-."}:
+        return None
+    try:
+        return float(cleaned)
+    except ValueError:
+        return None
+
+
 def _number_present(needle: float, haystack: list[float]) -> bool:
+    """Is this value present in the evidence, allowing for rounding and units?
+
+    Magnitudes are compared, not signed values: a query returning a pct_change of -7.1 supports
+    a report sentence reading "declined 7.1%", because the direction is carried by the verb.
+    The consequence is that this check cannot catch a reversed direction, so "revenue grew 7.1%"
+    would also pass here. Direction is what the model review in the verify node is for, and the
+    limitation is recorded in docs/backlog.md.
+    """
     for candidate in haystack:
-        if candidate == needle:
+        if _close(needle, candidate) or _close(abs(needle), abs(candidate)):
             return True
-        scale = max(abs(needle), abs(candidate), 1.0)
-        if abs(candidate - needle) / scale <= NUMERIC_MATCH_TOLERANCE:
-            return True
-        # A report may express a raw count in thousands or millions.
-        for factor in (1_000, 1_000_000):
-            rescaled = abs(abs(candidate / factor) - abs(needle)) / scale
-            if candidate != 0 and rescaled <= NUMERIC_MATCH_TOLERANCE:
+        # A report may express a raw count in thousands or millions: 3,480,000 written as 3.48M.
+        # The comparison is normalised by the rescaled magnitude, not the original one, or any
+        # small number would appear to match any large one.
+        for factor in (1_000.0, 1_000_000.0):
+            if _close(abs(needle), abs(candidate) / factor):
                 return True
     return False
+
+
+def _close(left: float, right: float) -> bool:
+    if left == right:
+        return True
+    scale = max(abs(left), abs(right), 1.0)
+    return abs(left - right) / scale <= NUMERIC_MATCH_TOLERANCE
 
 
 def _flatten_for_matching(observation: Observation) -> str:
