@@ -383,9 +383,13 @@
 
     const task = TASKS.tasks.find((candidate) => candidate.matches(question));
     if (!task) {
-      explainScriptedLimit(question);
       revealStage();
-      toast("That question needs a real language model. See the explanation below.", "error");
+      if (state.research?.enabled) {
+        await askRealModel(question);
+      } else {
+        explainScriptedLimit(question);
+        toast("That question needs a real language model. See the explanation below.", "error");
+      }
       return;
     }
     revealStage();
@@ -442,6 +446,113 @@ OPENAI_MODEL=llama-3.3-70b-versatile</pre>
       </div>`;
   }
 
+  async function askRealModel(question) {
+    const mine = ++state.runToken;
+    const alive = () => mine === state.runToken;
+
+    resetStage(question);
+    $("#demo-caption").textContent = `Asking ${state.research.model}. It writes the SQL; the guard decides whether it runs.`;
+    const thinking = openToolCard("planning", `question: ${question}
+
+The model is being given the database schema and asked for a plan and the SQL to answer it.`);
+
+    let answer;
+    try {
+      answer = await api("/research/ask", { method: "POST", body: { question } });
+    } catch (error) {
+      closeToolCard(thinking, { meta: "failed", note: error.message, failed: true });
+      addNotice(error.message, "bad");
+      return;
+    }
+    if (!alive()) return;
+
+    closeToolCard(thinking, {
+      meta: `${answer.elapsed_ms} ms · ${answer.tokens} tokens · $${answer.cost_usd.toFixed(4)}`,
+      note: answer.plan.length ? `Plan: ${answer.plan.join(" → ")}` : "",
+    });
+
+    for (const [index, step] of answer.plan.entries()) {
+      const li = document.createElement("li");
+      li.dataset.state = "done";
+      li.dataset.index = String(index);
+      li.innerHTML = `<span class="tick">[x]</span><span>${escapeHtml(step)}</span>`;
+      $("#plan-list").append(li);
+    }
+
+    if (!answer.answerable) {
+      addNotice(answer.message, "warn");
+      $("#demo-caption").textContent = "The model could not answer this from the available data.";
+      return;
+    }
+
+    for (const step of answer.steps) {
+      if (!alive()) return;
+      const card = openToolCard("sql_query", step.executed_sql || step.sql);
+      await sleep(420);
+      if (step.ok) {
+        state.sources[step.source_id] = {
+          title: `${step.source_id} — sql_query (read-only, ${step.latency_ms} ms)`,
+          body: `${step.executed_sql}
+
+${step.columns.join(" | ")}
+${"-".repeat(Math.min(step.columns.join(" | ").length, 90))}
+${step.rows
+            .slice(0, 25)
+            .map((row) => step.columns.map((c) => formatCell(row[c])).join(" | "))
+            .join("
+")}`,
+        };
+        closeToolCard(card, {
+          meta: `${step.row_count} rows · ${step.latency_ms} ms`,
+          note: step.purpose,
+        });
+      } else {
+        closeToolCard(card, {
+          meta: step.refused ? "refused by the guard" : "failed",
+          note: step.reason,
+          failed: true,
+        });
+      }
+    }
+
+    if (!alive()) return;
+    const removed = answer.removed_claims.length
+      ? `<p class="limitation">Verification removed ${answer.removed_claims.length} sentence${answer.removed_claims.length === 1 ? "" : "s"} that the evidence did not support.</p>`
+      : "";
+    const paragraphs = answer.body
+      .split(/
++/)
+      .filter((p) => p.trim())
+      .map((p) => `<p>${linkCitations(p)}</p>`)
+      .join("");
+
+    const report = $("#report");
+    report.innerHTML = `
+      <header class="report-head">
+        <h3>${escapeHtml(answer.title)}</h3>
+        <span class="badge ${answer.verification_score >= 0.8 ? "badge-good" : "badge-warn"}">
+          ${Math.round(answer.verification_score * 100)}% of claims verified
+        </span>
+      </header>
+      <p class="report-hint">
+        Written by ${escapeHtml(answer.model)}. Click any yellow tag for the query behind it.
+      </p>
+      ${paragraphs}
+      ${removed}
+      <p class="limitation">Worth knowing: ${escapeHtml(answer.limitation || "Based only on the queries shown above.")}</p>`;
+    report.hidden = false;
+    report.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    $("#demo-caption").textContent = `Answered in ${(answer.elapsed_ms / 1000).toFixed(1)}s for $${answer.cost_usd.toFixed(4)}.`;
+  }
+
+  // Turn [S1] markers into clickable chips without trusting the model's text as HTML.
+  function linkCitations(text) {
+    return escapeHtml(text).replace(
+      /\[S(\d+)\]/g,
+      (_, n) => `<cite data-src="S${n}">S${n}</cite>`,
+    );
+  }
+
   /* ---------------------------------------------------------- citations ---- */
 
   function initCitations() {
@@ -494,6 +605,7 @@ OPENAI_MODEL=llama-3.3-70b-versatile</pre>
     $("#ask-btn").disabled = false;
     loadProviders();
     loadLiveStats();
+    loadResearchStatus();
   }
 
   async function restoreSession() {
@@ -703,6 +815,21 @@ GROUP BY campaign`,
           <span>${label}</span>
         </div>`,
     ).join("");
+  }
+
+  async function loadResearchStatus() {
+    try {
+      state.research = await api("/research/status");
+    } catch {
+      state.research = { enabled: false };
+    }
+    const hint = $("#ask-hint");
+    if (state.research.enabled) {
+      hint.textContent = `Ask anything — answered by ${state.research.model}`;
+      $("#question-input").placeholder = "Ask anything about sales, products, customers or marketing spend";
+    } else {
+      hint.textContent = "Press Enter to investigate";
+    }
   }
 
   async function loadProviders() {

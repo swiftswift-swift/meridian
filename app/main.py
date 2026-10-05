@@ -25,6 +25,7 @@ from app.api.v1 import auth as auth_routes
 from app.api.v1 import datasources as datasource_routes
 from app.api.v1 import health as health_routes
 from app.api.v1 import insights as insight_routes
+from app.api.v1 import research as research_routes
 from app.container import ServiceContainer
 from app.infra.logging import configure_logging
 from app.settings import Settings
@@ -97,7 +98,12 @@ def _register_middleware(app: FastAPI, settings: Settings) -> None:
 
 def _register_routes(app: FastAPI) -> None:
     app.include_router(health_routes.router)
-    for router in (auth_routes.router, datasource_routes.router, insight_routes.router):
+    for router in (
+        auth_routes.router,
+        datasource_routes.router,
+        insight_routes.router,
+        research_routes.router,
+    ):
         app.include_router(router, prefix="/api/v1")
 
 
