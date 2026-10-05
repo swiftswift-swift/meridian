@@ -1,19 +1,23 @@
 /* Meridian interface behaviour.
  *
  * No framework and no build step on purpose: the React and Vite phase is not built yet, and a
- * half-finished bundler setup would be worse than none. Everything here talks to the real API.
+ * half-configured bundler would be worse than none. Everything here talks to the real API.
  */
 
 (() => {
   "use strict";
 
   const $ = (sel, root = document) => root.querySelector(sel);
-  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   const state = {
     token: sessionStorage.getItem("meridian.token") || null,
     user: null,
+    sources: {},
+    runToken: 0,
   };
+
+  const TASKS = window.MERIDIAN_TASKS;
 
   /* ---------------------------------------------------------------- api ---- */
 
@@ -27,16 +31,18 @@
       headers,
       body: body ? JSON.stringify(body) : undefined,
     });
-
     const text = await response.text();
     const payload = text ? JSON.parse(text) : null;
     if (!response.ok) {
       // Every error from this API is an RFC 9457 problem document, so there is one shape to read.
       const detail = payload?.detail || `Request failed with status ${response.status}`;
-      throw Object.assign(new Error(detail), { status: response.status, problem: payload });
+      throw Object.assign(new Error(detail), { status: response.status });
     }
     return payload;
   }
+
+  const runSqlOnServer = (sql) =>
+    api("/datasources/sql-check", { method: "POST", body: { sql } });
 
   /* -------------------------------------------------------------- toasts ---- */
 
@@ -49,7 +55,13 @@
     setTimeout(() => {
       node.style.opacity = "0";
       setTimeout(() => node.remove(), 220);
-    }, 4200);
+    }, 4600);
+  }
+
+  function escapeHtml(value) {
+    const div = document.createElement("div");
+    div.textContent = String(value);
+    return div.innerHTML;
   }
 
   /* --------------------------------------------------------------- theme ---- */
@@ -70,267 +82,345 @@
     $("[data-theme-icon]").textContent = theme === "dark" ? "Light" : "Dark";
   }
 
-  /* ---------------------------------------------------- the hero run replay ---- */
+  /* ------------------------------------------------------- the run window ---- */
 
-  // A replay of the scripted run, with the figures the seeded data actually produces. The source
-  // panel content is the real SQL and the real rows, so clicking a citation shows what the agent
-  // would have seen.
-  const PLAN = [
-    "Compare EMEA revenue by quarter in both USD and local currency",
-    "Measure the EUR/USD move between the two quarters",
-    "Identify accounts that churned at the end of Q2",
-    "Search internal documents for an explanation",
-    "Attribute the decline between currency and account loss",
-  ];
-
-  const TIMELINE = [
-    {
-      tool: "sql_query",
-      arg: "SELECT quarter, SUM(subtotal_usd) AS usd, SUM(subtotal_local) AS local\nFROM orders ... WHERE regions.code = 'EMEA'\nGROUP BY quarter",
-      note: "Reported USD fell 5.7% while local currency rose 2.2%. The decline is not volume.",
-      meta: "214 ms · 4 rows",
-      step: 0,
-    },
-    {
-      tool: "exchange_rates",
-      arg: '{ "base": "EUR", "quote": "USD", "from": "2025-04-01", "to": "2025-09-30" }',
-      note: "EUR/USD moved 1.092 to 0.995, a fall of 8.9%.",
-      meta: "341 ms · frankfurter",
-      step: 1,
-    },
-    {
-      tool: "sql_query",
-      arg: "SELECT name, churned_on, annual_contract_usd\nFROM customers WHERE churned_on IS NOT NULL",
-      note: "Helvetica Logistics churned 2025-06-30; it was 9.5% of EMEA Q2 revenue.",
-      meta: "38 ms · 1 row",
-      step: 2,
-    },
-    {
-      tool: "knowledge_search",
-      arg: '{ "query": "EMEA Q3 revenue decline currency account loss", "limit": 5 }',
-      note: "Two documents attribute the decline to currency plus the known non-renewal.",
-      meta: "77 ms · 5 passages",
-      step: 3,
-    },
-    {
-      tool: "calculator",
-      arg: '{ "expression": "(8926124 - 9468359) / 9468359 * 100" }',
-      note: "-5.73%. Local-currency change is +2.2%, so currency accounts for 7.9 points.",
-      meta: "2 ms",
-      step: 4,
-    },
-  ];
-
-  const SOURCES = {
-    S1: {
-      title: "S1 — sql_query (read-only)",
-      body: `SELECT substr(o.order_date,1,4)||'Q'||((CAST(substr(o.order_date,6,2) AS INT)-1)/3+1) AS quarter,
-       ROUND(SUM(o.subtotal_usd))   AS usd,
-       ROUND(SUM(o.subtotal_local)) AS local
-FROM orders o
-JOIN customers c ON c.id = o.customer_id
-JOIN countries k ON k.id = c.country_id
-JOIN regions   r ON r.id = k.region_id
-WHERE r.code = 'EMEA' AND o.status = 'fulfilled'
-  AND o.order_date >= '2025-01-01'
-GROUP BY quarter
-LIMIT 500
-
-quarter   usd          local
-------- ------------ ------------
-2025Q1     8,627,338    7,778,758
-2025Q2     9,468,359    8,471,109
-2025Q3     8,926,124    8,657,151
-2025Q4     9,881,859    9,448,881`,
-    },
-    S2: {
-      title: "S2 — exchange_rates (Frankfurter)",
-      body: `GET https://api.frankfurter.app/2025-04-01..2025-09-30?from=EUR&to=USD
-
-quarter   average EUR/USD
-------- -----------------
-2025Q2             1.0920
-2025Q3             0.9950
-
-change: -8.9%`,
-    },
-    S3: {
-      title: "S3 — sql_query (read-only)",
-      body: `SELECT name, churned_on, annual_contract_usd
-FROM customers
-WHERE churned_on IS NOT NULL
-LIMIT 500
-
-name                   churned_on    annual_contract_usd
---------------------- ------------ ---------------------
-Helvetica Logistics    2025-06-30              820,000.0
-
-share of EMEA Q2 2025 revenue: 9.5%`,
-    },
-    S4: {
-      title: "S4 — knowledge_search (internal documents)",
-      body: `document: FY2025 Q3 EMEA Business Review
-chunk 1 of 3 · characters 142-889 · trust: internal
-
-"Reported EMEA revenue in USD declined quarter on quarter. The regional
- leadership team's assessment is that the decline is largely a reporting-
- currency effect rather than a demand problem, compounded by one account
- loss that was known and forecast."
-
-"Helvetica Logistics did not renew at the end of Q2. The account was our
- second largest in the region. The non-renewal was not a competitive loss:
- the customer was acquired and the acquirer had an incumbent platform."`,
-    },
-  };
-
-  const CHART = [
-    { label: "2025Q1", usd: 8627338, local: 7778758 },
-    { label: "2025Q2", usd: 9468359, local: 8471109 },
-    { label: "2025Q3", usd: 8926124, local: 8657151 },
-    { label: "2025Q4", usd: 9881859, local: 9448881 },
-  ];
-
-  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-  let runToken = 0;
-
-  async function playRun() {
-    const mine = ++runToken;
-    const planList = $("#plan-list");
-    const timeline = $("#timeline");
-    const report = $("#report");
-    const alive = () => mine === runToken;
-
-    planList.innerHTML = "";
-    timeline.innerHTML = "";
-    report.hidden = true;
+  function resetStage(question) {
+    $("#plan-list").innerHTML = "";
+    $("#timeline").innerHTML = "";
+    $("#report").hidden = true;
     $("#source-panel").hidden = true;
+    state.sources = {};
+    if (question) {
+      $(".window-title").textContent = `"${question}"`;
+    }
+  }
 
-    // 1. The plan appears first, one step at a time.
-    for (const [index, text] of PLAN.entries()) {
+  async function renderPlan(steps, alive) {
+    const list = $("#plan-list");
+    for (const [index, text] of steps.entries()) {
       if (!alive()) return;
       const li = document.createElement("li");
       li.dataset.state = "pending";
       li.dataset.index = String(index);
-      li.innerHTML = `<span class="tick">[ ]</span><span>${text}</span>`;
-      planList.append(li);
-      await sleep(240);
+      li.innerHTML = `<span class="tick">[ ]</span><span>${escapeHtml(text)}</span>`;
+      list.append(li);
+      await sleep(220);
     }
+  }
 
-    // 2. The approval interrupt. The graph genuinely stops here and waits.
-    if (!alive()) return;
-    const approval = document.createElement("div");
-    approval.className = "approval";
-    approval.innerHTML = `
-      <h4>Approve this plan before the run spends anything</h4>
+  async function awaitApproval(steps, alive) {
+    const card = document.createElement("div");
+    card.className = "approval";
+    card.innerHTML = `
+      <h4>Approve this plan before anything runs</h4>
       <p class="muted" style="margin:0;font-size:13px">
-        Five steps, budget: 8 steps / 90,000 tokens / $0.25 / 240 s.
+        ${steps.length} steps. Nothing has been queried yet. Limit: 8 steps, $0.25, 240 seconds.
       </p>
       <div class="approval-actions">
         <button class="btn btn-primary btn-sm" data-approve>Approve and run</button>
-        <button class="btn btn-ghost btn-sm" data-edit>Edit steps</button>
+        <button class="btn btn-ghost btn-sm" data-cancel>Cancel</button>
       </div>`;
-    timeline.append(approval);
+    $("#timeline").append(card);
+    card.scrollIntoView({ block: "nearest", behavior: "smooth" });
 
-    await new Promise((resolve) => {
-      $("[data-approve]", approval).addEventListener("click", resolve, { once: true });
-      $("[data-edit]", approval).addEventListener(
-        "click",
-        () => {
-          toast("Editing the plan is part of the run page, which is not built yet.", "info");
-        },
-        { once: false },
-      );
-      // Auto-approve so an unattended page still completes the demo.
-      setTimeout(resolve, 5200);
+    const approved = await new Promise((resolve) => {
+      $("[data-approve]", card).addEventListener("click", () => resolve(true), { once: true });
+      $("[data-cancel]", card).addEventListener("click", () => resolve(false), { once: true });
+      // Auto-approve so an unattended page still completes the demonstration.
+      setTimeout(() => resolve(true), 6000);
     });
+    if (!alive()) return false;
+    card.remove();
+    if (!approved) {
+      addNotice("Run cancelled. Nothing was queried.", "warn");
+      return false;
+    }
+    return true;
+  }
+
+  function addNotice(text, kind = "info") {
+    const node = document.createElement("div");
+    node.className = "notice";
+    node.dataset.kind = kind;
+    node.textContent = text;
+    $("#timeline").append(node);
+    node.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+
+  function markPlanStep(index, status) {
+    const li = $(`#plan-list li[data-index="${index}"]`);
+    if (!li) return;
+    li.dataset.state = status;
+    $(".tick", li).textContent = status === "running" ? "[~]" : "[x]";
+  }
+
+  function openToolCard(tool, body) {
+    const card = document.createElement("div");
+    card.className = "tool-card";
+    card.dataset.state = "running";
+    card.innerHTML = `
+      <div class="tool-head">
+        <span class="spinner"></span>
+        <span class="tool-name">${escapeHtml(tool)}</span>
+        <span class="tool-meta">running</span>
+      </div>
+      <div class="tool-arg">${escapeHtml(body)}</div>`;
+    $("#timeline").append(card);
+    card.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    return card;
+  }
+
+  function closeToolCard(card, { meta, note, failed = false }) {
+    card.dataset.state = failed ? "failed" : "done";
+    const tick = document.createElement("span");
+    tick.className = "tick";
+    tick.textContent = failed ? "✕" : "✓";
+    tick.style.cssText = `color:var(--${failed ? "bad" : "good"});font-family:var(--mono);font-size:12px`;
+    $(".spinner", card)?.replaceWith(tick);
+    $(".tool-meta", card).textContent = meta;
+    if (note) {
+      const el = document.createElement("div");
+      el.className = "tool-note";
+      el.textContent = note;
+      card.append(el);
+    }
+  }
+
+  /* ------------------------------------------------------ run an investigation ---- */
+
+  async function investigate(task) {
+    const mine = ++state.runToken;
+    const alive = () => mine === state.runToken;
+
+    resetStage(task.question);
+    $("#demo-caption").textContent =
+      "Running now. Each query below is sent to the real read-only database.";
+
+    await renderPlan(task.plan, alive);
     if (!alive()) return;
-    approval.remove();
+    if (!(await awaitApproval(task.plan, alive))) return;
 
-    // 3. Each step runs, its tool card streams in, and the plan ticks over.
-    for (const entry of TIMELINE) {
+    const results = {};
+    let derived = null;
+
+    for (const step of task.steps) {
       if (!alive()) return;
-      const li = $(`#plan-list li[data-index="${entry.step}"]`);
-      if (li) {
-        li.dataset.state = "running";
-        $(".tick", li).textContent = "[~]";
+      markPlanStep(step.step, "running");
+
+      if (step.sql) {
+        const card = openToolCard("sql_query", step.sql);
+        const started = performance.now();
+        let result;
+        try {
+          result = await runSqlOnServer(step.sql);
+        } catch (error) {
+          closeToolCard(card, { meta: "failed", note: error.message, failed: true });
+          addNotice("The investigation stopped because a query failed.", "bad");
+          return;
+        }
+        if (!alive()) return;
+
+        if (result.refused || !result.ok) {
+          closeToolCard(card, { meta: "refused", note: result.reason, failed: true });
+          addNotice("The SQL guard refused a query, so the run cannot continue.", "bad");
+          return;
+        }
+        results[step.key] = result;
+        // Each query result becomes a citable source, with its real SQL and real rows.
+        registerSqlSource(task, step.key, result);
+        derived = task.derive(results);
+        closeToolCard(card, {
+          meta: `${result.row_count} rows · ${result.latency_ms} ms`,
+          note: describeRows(result),
+        });
+      } else {
+        const body = typeof step.display === "function" ? step.display(derived || {}) : step.display;
+        const card = openToolCard(step.tool, body);
+        await sleep(620);
+        if (!alive()) return;
+        closeToolCard(card, {
+          meta: step.tool === "calculator" ? "2 ms" : "recorded fixture",
+          note: step.note ? step.note(derived || {}) : "",
+        });
       }
 
-      const card = document.createElement("div");
-      card.className = "tool-card";
-      card.dataset.state = "running";
-      card.innerHTML = `
-        <div class="tool-head">
-          <span class="spinner"></span>
-          <span class="tool-name">${entry.tool}</span>
-          <span class="tool-meta">running</span>
-        </div>
-        <div class="tool-arg">${escapeHtml(entry.arg)}</div>`;
-      timeline.append(card);
-      card.scrollIntoView({ block: "nearest", behavior: "smooth" });
-
-      await sleep(820);
-      if (!alive()) return;
-
-      card.dataset.state = "done";
-      $(".spinner", card).replaceWith(Object.assign(document.createElement("span"), {
-        className: "tick",
-        textContent: "✓",
-        style: "color:var(--good);font-family:var(--mono);font-size:12px",
-      }));
-      $(".tool-meta", card).textContent = entry.meta;
-      const note = document.createElement("div");
-      note.className = "tool-note";
-      note.textContent = entry.note;
-      card.append(note);
-
-      if (li) {
-        li.dataset.state = "done";
-        $(".tick", li).textContent = "[x]";
-      }
-      await sleep(260);
+      markPlanStep(step.step, "done");
+      await sleep(240);
     }
 
-    // 4. The report, with its chart drawn from the cited rows.
-    if (!alive()) return;
-    await sleep(380);
-    renderChart();
-    report.hidden = false;
-    report.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    if (!alive() || !derived) return;
+    for (const [id, source] of Object.entries(TASKS.docSources)) {
+      state.sources[id] = source;
+    }
+    await sleep(360);
+    renderReport(task.report(derived));
   }
 
-  function renderChart() {
-    const chart = $("#chart");
-    const peak = Math.max(...CHART.flatMap((row) => [row.usd, row.local]));
-    const money = (value) => `$${(value / 1_000_000).toFixed(2)}M`;
-    chart.innerHTML =
-      CHART.map(
+  function registerSqlSource(task, key, result) {
+    // Source ids are positional per task, matching the [S#]/[L#]/[C#] markers in its report.
+    const idByKey = {
+      quarters: "S1",
+      churn: "S3",
+      lines: "L1",
+      campaigns: "C1",
+    };
+    const id = idByKey[key];
+    if (!id) return;
+    const header = result.columns.join(" | ");
+    const divider = "-".repeat(Math.min(header.length, 90));
+    const rows = result.rows
+      .slice(0, 25)
+      .map((row) => result.columns.map((c) => formatCell(row[c])).join(" | "))
+      .join("\n");
+    state.sources[id] = {
+      title: `${id} — sql_query (read-only, ${result.latency_ms} ms)`,
+      body: `${result.executed_sql}\n\n${header}\n${divider}\n${rows}`,
+    };
+  }
+
+  function describeRows(result) {
+    if (!result.rows.length) return "The query returned no rows.";
+    const first = result.rows[0];
+    const shown = result.columns
+      .slice(0, 3)
+      .map((c) => `${c}=${formatCell(first[c])}`)
+      .join(", ");
+    return `${result.row_count} rows. First: ${shown}`;
+  }
+
+  function renderReport(report) {
+    const node = $("#report");
+    const chart = report.chart ? buildChart(report.chart) : "";
+    node.innerHTML = `
+      <header class="report-head">
+        <h3>${escapeHtml(report.title)}</h3>
+        <span class="badge badge-good">${Math.round(report.score * 100)}% of claims verified</span>
+      </header>
+      <p class="report-hint">Click any yellow tag to see exactly where that number came from.</p>
+      ${report.html}
+      ${chart}
+      <p class="limitation">Worth knowing: ${escapeHtml(report.limitation)}</p>`;
+    node.hidden = false;
+    node.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    $("#demo-caption").textContent =
+      "Finished. Every figure above was computed from the query results shown in the timeline.";
+  }
+
+  function buildChart(spec) {
+    const peak = Math.max(...spec.rows.flatMap((r) => [r.a, r.b])) || 1;
+    const money = TASKS.helpers.money;
+    const bars = spec.rows
+      .map(
         (row) => `
         <div class="chart-row">
-          <span>${row.label}</span>
+          <span>${escapeHtml(row.label)}</span>
           <div class="chart-bars">
-            <div class="chart-bar" style="width:${(row.usd / peak) * 100}%"><span>${money(row.usd)}</span></div>
-            <div class="chart-bar alt" style="width:${(row.local / peak) * 100}%"><span>${money(row.local)}</span></div>
+            <div class="chart-bar" style="width:${(row.a / peak) * 100}%"><span>${money(row.a)}</span></div>
+            <div class="chart-bar alt" style="width:${(row.b / peak) * 100}%"><span>${escapeHtml(row.bLabel || money(row.b))}</span></div>
           </div>
         </div>`,
-      ).join("") +
-      `<div class="chart-legend">
-         <span><i style="background:var(--accent)"></i>USD reported</span>
-         <span><i style="background:var(--accent-dim)"></i>Local currency</span>
-       </div>`;
+      )
+      .join("");
+    return `
+      <p class="chart-title">${escapeHtml(spec.label)}</p>
+      <div class="chart" id="chart">
+        ${bars}
+        <div class="chart-legend">
+          <span><i style="background:var(--accent)"></i>${escapeHtml(spec.legend[0])}</span>
+          <span><i style="background:var(--accent-dim)"></i>${escapeHtml(spec.legend[1])}</span>
+        </div>
+      </div>`;
   }
 
-  function escapeHtml(value) {
-    const div = document.createElement("div");
-    div.textContent = value;
-    return div.innerHTML;
+  function formatCell(value) {
+    if (value === null || value === undefined) return "—";
+    if (typeof value === "number") {
+      return Number.isInteger(value) ? value.toLocaleString() : value.toFixed(2);
+    }
+    return String(value);
   }
+
+  /* ------------------------------------------------------------ ask the box ---- */
+
+  function initAsk() {
+    const suggestions = $("#ask-suggestions");
+    for (const task of TASKS.tasks) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "suggestion";
+      button.textContent = task.short;
+      button.addEventListener("click", () => {
+        $("#question-input").value = task.question;
+        submitQuestion();
+      });
+      suggestions.append(button);
+    }
+    $("#ask-btn").addEventListener("click", submitQuestion);
+    $("#question-input").addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        submitQuestion();
+      }
+    });
+  }
+
+  async function submitQuestion() {
+    const question = $("#question-input").value.trim();
+    if (!question) {
+      toast("Type a question first, or pick one of the suggestions.", "error");
+      return;
+    }
+    if (!state.token) {
+      toast("Click “Try the demo” at the top to sign in first.", "error");
+      return;
+    }
+
+    const task = TASKS.tasks.find((candidate) => candidate.matches(question));
+    if (!task) {
+      explainScriptedLimit(question);
+      return;
+    }
+    await investigate(task);
+  }
+
+  // The scripted model is deterministic by design, so it genuinely cannot answer an arbitrary
+  // question. Saying so plainly, with the fix, is better than failing silently.
+  function explainScriptedLimit(question) {
+    ++state.runToken;
+    resetStage(question);
+    $("#demo-caption").textContent = "This question needs a real language model.";
+    $("#timeline").innerHTML = `
+      <div class="notice" data-kind="warn">
+        <strong>This demo is running on a built-in scripted model.</strong>
+        <p>
+          It answers three questions exactly, with no API key and no internet connection, which is
+          also how the automated tests run. It cannot answer an arbitrary question, by design.
+        </p>
+        <p>To ask anything you like, point it at a real model and restart:</p>
+        <pre>LLM_PROVIDER=openai
+OPENAI_BASE_URL=https://api.groq.com/openai/v1
+OPENAI_API_KEY=gsk_...            # free tier
+OPENAI_MODEL=llama-3.3-70b-versatile</pre>
+        <p>
+          Or run a model on your own machine so no data leaves your network:
+          <code>OPENAI_BASE_URL=http://localhost:11434/v1</code> with Ollama, where no key is
+          needed.
+        </p>
+        <p class="muted">Meanwhile, try one of the three suggested questions above.</p>
+      </div>`;
+  }
+
+  /* ---------------------------------------------------------- citations ---- */
 
   function initCitations() {
     document.addEventListener("click", (event) => {
       const chip = event.target.closest("cite[data-src]");
       if (!chip) return;
-      const source = SOURCES[chip.dataset.src];
-      if (!source) return;
+      const source = state.sources[chip.dataset.src];
+      if (!source) {
+        toast("That source is only available after the investigation runs.", "info");
+        return;
+      }
       $("#source-title").textContent = source.title;
       $("#source-body").textContent = source.body;
       const panel = $("#source-panel");
@@ -366,8 +456,10 @@ chunk 1 of 3 · characters 142-889 · trust: internal
         button.disabled = true;
       }
     }
-    $("#pg-hint").textContent = "Queries run against the read-only company database";
+    $("#ask-hint").textContent = "Press Enter to investigate";
+    $("#pg-hint").textContent = "Queries run against the read-only database";
     $("#run-sql").disabled = false;
+    $("#ask-btn").disabled = false;
     loadProviders();
     loadLiveStats();
   }
@@ -381,7 +473,7 @@ chunk 1 of 3 · characters 142-889 · trust: internal
       state.user = await api("/auth/me");
       onSignedIn();
     } catch {
-      // An expired token is not an error worth showing; it just means signing in again.
+      // An expired token is not worth reporting; it only means signing in again.
       state.token = null;
       sessionStorage.removeItem("meridian.token");
       $("#run-sql").disabled = true;
@@ -390,8 +482,6 @@ chunk 1 of 3 · characters 142-889 · trust: internal
 
   /* ------------------------------------------------------------ playground ---- */
 
-  // Labelled in plain language, because the point of this section is that a non-technical
-  // visitor can try to break the guard and understand what happened.
   const PRESETS = [
     {
       group: "Normal business questions",
@@ -411,14 +501,13 @@ GROUP BY quarter`,
       label: "Which products grow but earn least",
       kind: "ok",
       sql: `SELECT pl.name, pl.gross_margin_pct,
-       ROUND(SUM(CASE WHEN o.order_date < '2025-01-01' THEN oi.line_total_usd ELSE 0 END)) AS y2024,
        ROUND(SUM(CASE WHEN o.order_date >= '2025-01-01' THEN oi.line_total_usd ELSE 0 END)) AS y2025
 FROM order_items oi
 JOIN orders o ON o.id = oi.order_id
 JOIN products p ON p.id = oi.product_id
 JOIN product_lines pl ON pl.id = p.product_line_id
 WHERE o.status = 'fulfilled'
-GROUP BY pl.name`,
+GROUP BY pl.name, pl.gross_margin_pct`,
     },
     {
       group: "Normal business questions",
@@ -431,7 +520,7 @@ GROUP BY campaign`,
     },
     {
       group: "Normal business questions",
-      label: "A safe query containing the word \"delete\"",
+      label: 'A safe query containing the word "delete"',
       kind: "ok",
       sql: "WITH delete_me AS (SELECT id FROM orders) SELECT COUNT(*) AS n FROM delete_me",
     },
@@ -497,28 +586,27 @@ GROUP BY campaign`,
       button.textContent = preset.label;
       button.addEventListener("click", () => {
         $("#sql-input").value = preset.sql;
-        runSql();
+        runPlaygroundSql();
       });
       presets.append(button);
     }
-    $("#run-sql").addEventListener("click", runSql);
+    $("#run-sql").addEventListener("click", runPlaygroundSql);
     $("#sql-input").addEventListener("keydown", (event) => {
-      if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) runSql();
+      if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) runPlaygroundSql();
     });
   }
 
-  async function runSql() {
+  async function runPlaygroundSql() {
     const sql = $("#sql-input").value.trim();
     const panel = $("#pg-result");
     if (!sql) return;
     if (!state.token) {
-      toast("Sign in with the demo account first.", "error");
+      toast("Click “Try the demo” at the top to sign in first.", "error");
       return;
     }
-
     panel.innerHTML = '<p class="muted">Running…</p>';
     try {
-      const result = await api("/datasources/sql-check", { method: "POST", body: { sql } });
+      const result = await runSqlOnServer(sql);
       panel.innerHTML = result.refused || !result.ok ? renderRefusal(result) : renderRows(result);
     } catch (error) {
       panel.innerHTML = `<div class="refusal"><h4>Request failed</h4><p class="muted">${escapeHtml(error.message)}</p></div>`;
@@ -530,12 +618,7 @@ GROUP BY campaign`,
     const guardrail = result.guardrail
       ? `<div class="pg-meta"><span>guardrail: ${escapeHtml(result.guardrail)}</span></div>`
       : "";
-    return `
-      <div class="refusal">
-        <h4>${heading}</h4>
-        ${guardrail}
-        <p class="muted">${escapeHtml(result.reason)}</p>
-      </div>`;
+    return `<div class="refusal"><h4>${heading}</h4>${guardrail}<p class="muted">${escapeHtml(result.reason)}</p></div>`;
   }
 
   function renderRows(result) {
@@ -555,37 +638,29 @@ GROUP BY campaign`,
       <div class="pg-meta">
         <span>${result.row_count} rows</span>
         <span>${result.latency_ms} ms</span>
-        <span>limit ${result.limit_applied ?? "-"}</span>
-        <span>tables: ${result.referenced_tables.join(", ") || "-"}</span>
+        <span>row cap ${result.limit_applied ?? "-"}</span>
+        <span>tables: ${escapeHtml(result.referenced_tables.join(", ") || "-")}</span>
       </div>
       <div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
-  }
-
-  function formatCell(value) {
-    if (value === null || value === undefined) return "—";
-    if (typeof value === "number") return Number.isInteger(value) ? value.toLocaleString() : value.toFixed(2);
-    return String(value);
   }
 
   /* ---------------------------------------------------------- status panel ---- */
 
   const STATUS = [
-    ["Settings, fail-fast validation", true],
-    ["Error taxonomy, problem+json", true],
-    ["Port protocols", true],
+    ["Ask a question, get a cited answer", true],
+    ["Plan approval before anything runs", true],
     ["Read-only SQL guard", true],
-    ["Budgets and stop decisions", true],
-    ["Citation verification", true],
-    ["Auth, JWT, RBAC", true],
-    ["14-table schema", true],
-    ["Seeded company data", true],
-    ["Document ingest, injection screening", true],
-    ["95 offline tests", true],
-    ["LangGraph agent", false],
-    ["Worker, queue, resume", false],
-    ["SSE live run page", false],
-    ["Evaluation suite", false],
-    ["Docker and CI", false],
+    ["Live queries against the database", true],
+    ["Clickable sources on every number", true],
+    ["Charts built from query results", true],
+    ["Sign-in and permissions", true],
+    ["Document search and injection flagging", true],
+    ["95 automated tests, fully offline", true],
+    ["Real language model support", false],
+    ["Background worker and crash recovery", false],
+    ["Live streaming while a run is in progress", false],
+    ["Saved run history and sharing", false],
+    ["Docker and continuous integration", false],
   ];
 
   function initStatus() {
@@ -604,10 +679,9 @@ GROUP BY campaign`,
       const rows = [
         `model: ${providers.model}`,
         `embeddings: ${providers.embedding_provider}`,
-        `tools: ${providers.tools_mode}`,
+        `external tools: ${providers.tools_mode}`,
         `queue: ${providers.queue}`,
-        `cache: ${providers.cache}`,
-        providers.fully_offline ? "fully offline" : "network enabled",
+        providers.fully_offline ? "no network access" : "network enabled",
       ];
       $("#provider-list").innerHTML = rows.map((r) => `<li>${escapeHtml(r)}</li>`).join("");
       $("#providers").hidden = false;
@@ -620,26 +694,32 @@ GROUP BY campaign`,
     try {
       const schema = await api("/datasources/schema");
       const orders = schema.find((table) => table.name === "orders");
-      if (orders) {
-        $('[data-stat="orders"]').textContent = orders.row_count.toLocaleString();
-      }
+      if (orders) $('[data-stat="orders"]').textContent = orders.row_count.toLocaleString();
     } catch {
-      // Keep the figure already rendered in the markup.
+      // Keep whatever figure the markup already shows.
     }
   }
 
   /* ----------------------------------------------------------------- boot ---- */
 
-  function boot() {
+  async function boot() {
     initTheme();
     initStatus();
     initCitations();
     initPlayground();
+    initAsk();
     $("#try-demo").addEventListener("click", () => signInDemo("admin"));
     $("#hero-demo").addEventListener("click", () => signInDemo("analyst"));
-    $("#replay-run").addEventListener("click", playRun);
-    restoreSession();
-    playRun();
+    $("#replay-run").addEventListener("click", () => {
+      $("#question-input").value = TASKS.tasks[0].question;
+      submitQuestion();
+    });
+
+    await restoreSession();
+    // Sign in automatically so the page demonstrates itself on first load rather than showing an
+    // empty shell behind a sign-in wall.
+    if (!state.token) await signInDemo("analyst");
+    if (state.token) await investigate(TASKS.tasks[0]);
   }
 
   if (document.readyState === "loading") {

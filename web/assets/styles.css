@@ -1174,3 +1174,126 @@ details p {
     margin: 0 0 8px;
   }
 }
+
+/* ---------------- the question box ---------------- */
+
+.ask {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.ask-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 9px;
+}
+#question-input {
+  width: 100%;
+  background: var(--bg-sunken);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  font: inherit;
+  font-size: 15px;
+  resize: vertical;
+  min-height: 62px;
+}
+#question-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+#question-input::placeholder {
+  color: var(--text-faint);
+}
+.ask-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 11px;
+}
+.ask-hint {
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+.ask-sub {
+  font-size: 12px;
+  color: var(--text-faint);
+  margin: 16px 0 8px;
+}
+.ask-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.suggestion {
+  font: inherit;
+  font-size: 12.5px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text-dim);
+  cursor: pointer;
+  text-align: left;
+}
+.suggestion:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+/* notices inside the run window */
+.notice {
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+  padding: 14px 16px;
+  font-size: 13.5px;
+  color: var(--text-dim);
+}
+.notice[data-kind="warn"] {
+  border-left-color: var(--warn);
+}
+.notice[data-kind="bad"] {
+  border-left-color: var(--bad);
+}
+.notice strong {
+  color: var(--text);
+  display: block;
+  margin-bottom: 7px;
+}
+.notice p {
+  margin: 0 0 9px;
+}
+.notice pre {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 11px;
+  margin: 0 0 9px;
+  font-size: 11.5px;
+  overflow-x: auto;
+  color: var(--accent);
+}
+.notice code {
+  background: var(--bg);
+  padding: 1px 5px;
+  border-radius: 2px;
+  color: var(--accent);
+}
+
+.chart-title {
+  font-size: 12px !important;
+  color: var(--text-faint) !important;
+  margin: 16px 0 -8px !important;
+  font-family: var(--mono);
+}
+
+.tool-card[data-state="failed"] {
+  border-left-color: var(--bad);
+}
