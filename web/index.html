@@ -80,9 +80,26 @@
           </dl>
         </div>
 
+        <!-- The question box. Submitting runs real queries against the read-only database and
+             builds the answer from the rows that come back. -->
+        <div class="ask" id="ask">
+          <label class="ask-label" for="question-input">Ask a question about the business</label>
+          <textarea
+            id="question-input"
+            rows="2"
+            placeholder="Why did EMEA revenue drop in Q3 compared to Q2?"
+          ></textarea>
+          <div class="ask-row">
+            <button class="btn btn-primary" id="ask-btn" type="button">Investigate</button>
+            <span class="ask-hint" id="ask-hint">Click "Try the demo" first to enable this</span>
+          </div>
+          <p class="ask-sub">Or pick one of these:</p>
+          <div class="ask-suggestions" id="ask-suggestions"></div>
+        </div>
+
         <!-- The hero animation replays a real run, with the figures the seeded data produces. -->
         <div class="hero-demo" aria-label="Example of the assistant working">
-          <p class="demo-caption">
+          <p class="demo-caption" id="demo-caption">
             Watch a real question being answered. This is not a video — it is the actual sequence
             the assistant follows.
           </p>
@@ -94,34 +111,7 @@
             <div class="window-body" id="run-stage">
               <ol class="plan" id="plan-list"></ol>
               <div class="timeline" id="timeline"></div>
-              <article class="report" id="report" hidden>
-                <header class="report-head">
-                  <h3>It wasn't a sales problem. It was the exchange rate.</h3>
-                  <span class="badge badge-good" id="verify-badge">94% of claims verified</span>
-                </header>
-                <p class="report-hint">
-                  Click any yellow tag to see exactly where that number came from.
-                </p>
-                <p>
-                  European sales looked like they fell <strong>5.7%</strong>, from $9.47M to $8.93M
-                  <cite data-src="S1">S1</cite>. But measured in euros rather than dollars, sales
-                  actually <strong>went up 2.2%</strong> <cite data-src="S1">S1</cite>. The company
-                  sold slightly more and simply got fewer dollars for it.
-                </p>
-                <p>
-                  The euro fell from $1.09 to $1.00 between the two quarters
-                  <cite data-src="S2">S2</cite>, which accounts for most of the drop. The rest is
-                  one customer leaving: Helvetica Logistics, who were <strong>9.5%</strong> of
-                  European sales, did not renew <cite data-src="S3">S3</cite>. An internal review
-                  says they were bought by a company that already had a competing system — so this
-                  was not a lost competition <cite data-src="S4">S4</cite>.
-                </p>
-                <div class="chart" id="chart" aria-label="European sales by quarter, dollars versus euros"></div>
-                <p class="limitation">
-                  Worth knowing: splitting the blame between the exchange rate and the lost customer
-                  is arithmetic on reported figures, not a controlled experiment.
-                </p>
-              </article>
+              <article class="report" id="report" hidden></article>
             </div>
           </div>
           <div class="source-panel" id="source-panel" hidden>
@@ -414,6 +404,7 @@ GROUP BY r.code</textarea>
     </footer>
 
     <div class="toast-stack" id="toasts" aria-live="polite" role="status"></div>
+    <script src="/assets/ask.js"></script>
     <script src="/assets/app.js"></script>
   </body>
 </html>
