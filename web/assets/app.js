@@ -390,9 +390,12 @@ chunk 1 of 3 · characters 142-889 · trust: internal
 
   /* ------------------------------------------------------------ playground ---- */
 
+  // Labelled in plain language, because the point of this section is that a non-technical
+  // visitor can try to break the guard and understand what happened.
   const PRESETS = [
     {
-      label: "EMEA by quarter",
+      group: "Normal business questions",
+      label: "European sales by quarter",
       kind: "ok",
       sql: `SELECT substr(o.order_date,1,4)||'Q'||((CAST(substr(o.order_date,6,2) AS INT)-1)/3+1) AS quarter,
        ROUND(SUM(o.subtotal_usd)) AS usd, ROUND(SUM(o.subtotal_local)) AS local
@@ -404,7 +407,8 @@ WHERE r.code = 'EMEA' AND o.status = 'fulfilled' AND o.order_date >= '2025-01-01
 GROUP BY quarter`,
     },
     {
-      label: "Growth vs margin",
+      group: "Normal business questions",
+      label: "Which products grow but earn least",
       kind: "ok",
       sql: `SELECT pl.name, pl.gross_margin_pct,
        ROUND(SUM(CASE WHEN o.order_date < '2025-01-01' THEN oi.line_total_usd ELSE 0 END)) AS y2024,
@@ -417,30 +421,75 @@ WHERE o.status = 'fulfilled'
 GROUP BY pl.name`,
     },
     {
-      label: "Campaign ROI",
+      group: "Normal business questions",
+      label: "Which ad campaigns waste money",
       kind: "ok",
       sql: `SELECT campaign, ROUND(SUM(spend_usd)) AS spend,
-       ROUND(SUM(attributed_revenue_usd) / SUM(spend_usd), 2) AS roi
+       ROUND(SUM(attributed_revenue_usd) / SUM(spend_usd), 2) AS return_per_dollar
 FROM marketing_spend
 GROUP BY campaign`,
     },
-    { label: "DROP TABLE orders", kind: "attack", sql: "DROP TABLE orders" },
-    { label: "DELETE FROM orders", kind: "attack", sql: "DELETE FROM orders" },
-    { label: "UPDATE orders SET ...", kind: "attack", sql: "UPDATE orders SET subtotal_usd = 0" },
-    { label: "Chained statement", kind: "attack", sql: "SELECT 1; DROP TABLE orders" },
-    { label: "Read the users table", kind: "attack", sql: "SELECT * FROM users" },
-    { label: "load_extension()", kind: "attack", sql: "SELECT load_extension('evil.dll')" },
-    { label: "PRAGMA probe", kind: "attack", sql: "PRAGMA table_info(orders)" },
     {
-      label: "CTE named delete_me",
+      group: "Normal business questions",
+      label: "A safe query containing the word \"delete\"",
       kind: "ok",
-      sql: "WITH delete_me AS (SELECT id FROM orders) SELECT COUNT(*) FROM delete_me",
+      sql: "WITH delete_me AS (SELECT id FROM orders) SELECT COUNT(*) AS n FROM delete_me",
+    },
+    {
+      group: "Attempts to do damage",
+      label: "Destroy the orders table",
+      kind: "attack",
+      sql: "DROP TABLE orders",
+    },
+    {
+      group: "Attempts to do damage",
+      label: "Delete every order",
+      kind: "attack",
+      sql: "DELETE FROM orders",
+    },
+    {
+      group: "Attempts to do damage",
+      label: "Set all revenue to zero",
+      kind: "attack",
+      sql: "UPDATE orders SET subtotal_usd = 0",
+    },
+    {
+      group: "Attempts to do damage",
+      label: "Sneak a second command in",
+      kind: "attack",
+      sql: "SELECT 1; DROP TABLE orders",
+    },
+    {
+      group: "Attempts to do damage",
+      label: "Read the user accounts table",
+      kind: "attack",
+      sql: "SELECT * FROM users",
+    },
+    {
+      group: "Attempts to do damage",
+      label: "Load code from a file",
+      kind: "attack",
+      sql: "SELECT load_extension('evil.dll')",
+    },
+    {
+      group: "Attempts to do damage",
+      label: "Probe the database internals",
+      kind: "attack",
+      sql: "PRAGMA table_info(orders)",
     },
   ];
 
   function initPlayground() {
     const presets = $("#pg-presets");
+    let currentGroup = null;
     for (const preset of PRESETS) {
+      if (preset.group !== currentGroup) {
+        currentGroup = preset.group;
+        const label = document.createElement("p");
+        label.className = "pg-group-label";
+        label.textContent = currentGroup;
+        presets.append(label);
+      }
       const button = document.createElement("button");
       button.type = "button";
       button.className = "pg-preset";
