@@ -4,6 +4,12 @@ import { data } from "../api.js";
 import { pageHeader } from "../shell.js";
 import { $, errorState, escapeHtml, skeleton, table, toast } from "../ui.js";
 
+// The internal guard identifiers, in words someone outside the team would understand.
+const GUARD_NAMES = {
+  read_only_sql: "the read-only rule",
+  statement_timeout: "the time limit",
+};
+
 const PRESETS = [
   {
     group: "Normal business questions",
@@ -231,7 +237,7 @@ async function renderGuard(host) {
         result.refused || !result.ok
           ? `<div class="refusal">
                <h4>${result.refused ? "Blocked — and here is why" : "That did not run"}</h4>
-               ${result.guardrail ? `<div class="pg-meta"><span>guardrail: ${escapeHtml(result.guardrail)}</span></div>` : ""}
+               ${result.guardrail ? `<div class="pg-meta"><span>stopped by: ${escapeHtml(GUARD_NAMES[result.guardrail] || result.guardrail)}</span></div>` : ""}
                <p class="muted">${escapeHtml(result.reason)}</p>
              </div>`
           : `<div class="pg-meta">
