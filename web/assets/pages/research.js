@@ -2,7 +2,8 @@
 
 import { research, runs, session } from "../api.js";
 import { pageHeader } from "../shell.js";
-import { $, duration, escapeHtml, table, toast } from "../ui.js";
+import { chartSpec } from "../format.js";
+import { $, barChart, duration, escapeHtml, table, toast } from "../ui.js";
 
 const EXAMPLES = [
   {
@@ -185,12 +186,30 @@ export async function researchPage(view) {
       stage.scrollIntoView({ block: "start", behavior: "smooth" });
     } catch (error) {
       stage.innerHTML = renderFailure(error);
+      stage.querySelector("[data-retry]")?.addEventListener("click", start);
+      countDown(stage.querySelector("[data-countdown]"));
     } finally {
       running = false;
       $("#go").disabled = false;
       $("#go").textContent = "Find out";
     }
   }
+}
+
+/* A visible countdown beats "try again later": the reader knows when to act. */
+function countDown(node, seconds = 30) {
+  if (!node) return;
+  let left = seconds;
+  node.textContent = `Ready to retry in ${left}s`;
+  const timer = setInterval(() => {
+    left -= 1;
+    if (left <= 0) {
+      clearInterval(timer);
+      node.textContent = "You can try again now.";
+      return;
+    }
+    node.textContent = `Ready to retry in ${left}s`;
+  }, 1000);
 }
 
 function renderWorking(question) {
@@ -218,15 +237,18 @@ function renderWorking(question) {
 
 function renderFailure(error) {
   const rateLimited = error.status === 429;
+  const advice = rateLimited
+    ? "The AI service is busy. It usually clears in about thirty seconds."
+    : "Try rewording the question, or pick one of the examples above.";
   return `
-    <div class="panel">
+    <div class="panel failure-panel">
       <h3 class="panel-title">That did not work</h3>
-      <p class="muted">${escapeHtml(error.message)}</p>
-      ${
-        rateLimited
-          ? '<p class="muted">The AI service is busy. Wait about thirty seconds and try again.</p>'
-          : '<p class="muted">Try rewording the question, or pick one of the examples above.</p>'
-      }
+      <p class="plain-answer">${escapeHtml(error.message)}</p>
+      <p class="muted">${escapeHtml(advice)}</p>
+      <div class="report-actions">
+        <button class="btn btn-primary btn-sm" data-retry>Try again</button>
+        ${rateLimited ? '<span class="muted" data-countdown></span>' : ""}
+      </div>
     </div>`;
 }
 
@@ -361,7 +383,7 @@ function renderSource(step, index) {
                  This search came back with no rows, so nothing from it was used in the answer.
                  Usually that means the records do not cover what was asked for.
                </p>`
-            : `<p class="source-label">What it found</p>${table(step.columns, step.rows, { limit: 12 })}`
+            : `${renderFinding(step)}`
         }
         <details class="raw-query">
           <summary>Show the exact database query</summary>
@@ -373,6 +395,15 @@ function renderSource(step, index) {
         </details>
       </div>
     </details>`;
+}
+
+/* A chart when the shape suits one, then the numbers underneath it. */
+function renderFinding(step) {
+  const spec = chartSpec(step.columns, step.rows);
+  const chart = spec
+    ? `<p class="source-label">At a glance</p>${barChart(spec.rows, { legend: spec.legend })}`
+    : "";
+  return `${chart}<p class="source-label">${spec ? "The exact numbers" : "What it found"}</p>${table(step.columns, step.rows, { limit: 12 })}`;
 }
 
 function bindAnswer(stage, result) {

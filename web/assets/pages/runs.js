@@ -15,7 +15,15 @@ import {
   table,
   toast,
 } from "../ui.js";
+import { chartSpec } from "../format.js";
+import { barChart } from "../ui.js";
 import { linkCitations } from "./research.js";
+
+function renderSavedFinding(observation) {
+  const spec = chartSpec(observation.columns, observation.rows);
+  const chart = spec ? barChart(spec.rows, { legend: spec.legend }) : "";
+  return `${chart}${table(observation.columns, observation.rows, { limit: 15 })}`;
+}
 
 export async function runsPage(view) {
   view.innerHTML = `
@@ -190,7 +198,7 @@ export async function runDetailPage(view, params) {
             }</span>
           </summary>
           <pre class="sql">${escapeHtml(observation.sql)}</pre>
-          ${observation.ok ? table(observation.columns, observation.rows, { limit: 15 }) : `<p class="refusal-text">${escapeHtml(observation.reason)}</p>`}
+          ${observation.ok ? renderSavedFinding(observation) : `<p class="refusal-text">${escapeHtml(observation.reason)}</p>`}
         </details>`,
         )
         .join("")}

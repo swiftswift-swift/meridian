@@ -20,6 +20,7 @@ export async function insightsPage(view) {
     summary = await insights.summary();
   } catch (error) {
     $("#body").innerHTML = errorState(error);
+    $("#body").querySelector("[data-retry]")?.addEventListener("click", () => location.reload());
     return;
   }
 
@@ -74,6 +75,15 @@ function stat(label, value) {
   return `<div class="stat"><span class="stat-label">${escapeHtml(label)}</span><strong class="stat-value">${escapeHtml(value)}</strong></div>`;
 }
 
+const CATEGORY_BLURB = {
+  "SQL guard":
+    "Attempts to damage, delete or read data the assistant should never touch - plus ordinary " +
+    "queries that must still be allowed through.",
+  "Prompt injection":
+    "Text hidden inside documents trying to give the assistant orders - plus ordinary memos " +
+    "that must not be mistaken for an attack.",
+};
+
 const PLAIN = { refuse: "blocked", flag: "flagged", allow: "allowed", pass_through: "allowed" };
 
 export async function evaluationPage(view) {
@@ -87,6 +97,7 @@ export async function evaluationPage(view) {
     suite = await evaluation.suite();
   } catch (error) {
     $("#body").innerHTML = errorState(error);
+    $("#body").querySelector("[data-retry]")?.addEventListener("click", () => location.reload());
     return;
   }
 
@@ -115,6 +126,7 @@ export async function evaluationPage(view) {
         return `
         <section class="panel">
           <h3 class="panel-title">${escapeHtml(category)}</h3>
+          <p class="field-hint">${escapeHtml(CATEGORY_BLURB[category] || "")}</p>
           <div class="scenario-list">
             ${rows
               .map(
@@ -125,9 +137,15 @@ export async function evaluationPage(view) {
                   <span class="scenario-name">${escapeHtml(r.name)}</span>
                   <span class="scenario-expect">should be ${escapeHtml(PLAIN[r.expectation] || r.expectation)} · was ${escapeHtml(r.observed)}</span>
                 </summary>
-                <p class="field-hint">${escapeHtml(r.rationale)}</p>
-                <pre class="sql">${escapeHtml(r.payload)}</pre>
-                <p class="muted">${escapeHtml(r.detail)}</p>
+                <p class="scenario-why"><strong>Why this matters:</strong> ${escapeHtml(r.rationale)}</p>
+                <p class="scenario-result ${r.passed ? "pass" : "fail"}">
+                  <strong>${r.passed ? "Handled correctly." : "Not handled."}</strong>
+                  ${escapeHtml(r.detail)}
+                </p>
+                <details class="raw-query">
+                  <summary>Show what was actually sent</summary>
+                  <pre class="sql">${escapeHtml(r.payload)}</pre>
+                </details>
               </details>`,
               )
               .join("")}
