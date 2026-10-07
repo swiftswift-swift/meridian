@@ -3,6 +3,8 @@
    Deliberately not a framework. These pages re-render whole sections rather than diffing, which
    is fine at this size and keeps the whole UI readable without a build step. */
 
+import { formatValue, prettyColumn } from "./format.js";
+
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 export const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -80,15 +82,21 @@ export function since(iso) {
 
 export function table(columns, rows, { limit = 50 } = {}) {
   if (!rows || !rows.length) return `<p class="muted">No rows returned.</p>`;
-  const head = columns.map((c) => `<th>${escapeHtml(c)}</th>`).join("");
+  // Headings and values are both humanised here, so every table in the product reads the same
+  // way regardless of what the model named its columns.
+  const head = columns.map((c) => `<th>${escapeHtml(prettyColumn(c))}</th>`).join("");
   const body = rows
     .slice(0, limit)
     .map(
       (row) =>
-        `<tr>${columns.map((c) => `<td>${escapeHtml(cell(row[c]))}</td>`).join("")}</tr>`,
+        `<tr>${columns.map((c) => `<td>${escapeHtml(formatValue(c, row[c]))}</td>`).join("")}</tr>`,
     )
     .join("");
-  return `<div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+  const more =
+    rows.length > limit
+      ? `<p class="field-hint">Showing the first ${limit} of ${rows.length.toLocaleString()} rows.</p>`
+      : "";
+  return `<div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>${more}`;
 }
 
 export function skeleton(lines = 3) {
