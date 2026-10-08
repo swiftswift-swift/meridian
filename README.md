@@ -1,5 +1,8 @@
 # Meridian
 
+<!-- Replace OWNER/REPO once the repository has a remote; the badge is dead until then. -->
+[![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
+
 An autonomous research and analysis agent for business analysts. An analyst asks a multi-step
 question, the agent plans the investigation, asks the user to approve the plan, executes it by
 choosing tools, and writes a report in which every factual claim is cited to a tool result.
@@ -96,6 +99,36 @@ Demo accounts created by the seed, all with password `demo-password`:
 | admin@meridian.demo | admin |
 | analyst@meridian.demo | analyst |
 | viewer@meridian.demo | viewer |
+
+## Running with Docker
+
+```powershell
+docker compose up --build
+```
+
+Then open <http://localhost:8080>. The stack is the application, PostgreSQL and Redis. It comes
+up offline by default: the scripted model, recorded tool fixtures and hash embeddings, so no key
+and no outbound network are needed. Point it at a real model with environment variables:
+
+```powershell
+$env:LLM_PROVIDER="openai"
+$env:OPENAI_BASE_URL="https://api.groq.com/openai/v1"
+$env:OPENAI_API_KEY="gsk_..."
+$env:OPENAI_MODEL="openai/gpt-oss-120b"
+docker compose up --build
+```
+
+The image is multi-stage and runs as a non-root user, with a healthcheck on `/health/ready` so an
+instance whose database is unreachable is pulled from rotation rather than serving errors. The
+sample company data lives in its own PostgreSQL database, not merely its own schema, so the SQL
+tool's read-only connection cannot reach users, runs or reports at all.
+
+There is no worker service, because the worker is not built. Declaring one that exits
+immediately would be worse than leaving it out.
+
+**Not verified locally.** Docker is not installed on the machine this was developed on, so the
+image has never been built here. The `docker` job in CI builds it, starts it and waits for the
+healthcheck, which is where that claim gets tested.
 
 ## Architecture
 

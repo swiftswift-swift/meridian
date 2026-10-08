@@ -48,16 +48,14 @@ async def summary(container: ContainerDep) -> dict[str, Any]:
         ).all()
 
         verification = await session.scalar(select(func.avg(Report.verification_score)))
-        avg_cost = await session.scalar(
-            select(func.avg(func.json_extract(Run.usage, "$.cost_usd")))
-        )
-        avg_steps = await session.scalar(select(func.avg(func.json_extract(Run.usage, "$.steps"))))
+        # Run.usage["key"].as_float() compiles per dialect; func.json_extract is SQLite
+        # only and would fail against the PostgreSQL that docker compose starts.
+        avg_cost = await session.scalar(select(func.avg(Run.usage["cost_usd"].as_float())))
+        avg_steps = await session.scalar(select(func.avg(Run.usage["steps"].as_float())))
         durations = (
             (
                 await session.execute(
-                    select(func.json_extract(Run.usage, "$.wall_seconds")).where(
-                        Run.finished_at.is_not(None)
-                    )
+                    select(Run.usage["wall_seconds"].as_float()).where(Run.finished_at.is_not(None))
                 )
             )
             .scalars()
