@@ -1,0 +1,227 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A new push to the same branch supersedes the previous run; queued jobs for stale commits are
+# wasted minutes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  # Every job runs with the offline providers, so no job needs a secret and a fork's pull
+  # request gets the same signal as a branch.
+  APP_ENV: test
+  LLM_PROVIDER: scripted
+  TOOLS_MODE: fixtures
+  EMBEDDING_PROVIDER: hash
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - name: ruff format
+        run: ruff format --check app scripts tests company_db
+      - name: ruff check
+        run: ruff check app scripts tests company_db
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - run: mypy
+
+  test:
+    name: Tests (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.13 is the version SPEC.md names; 3.14 is what the author develops on. Both are
+        # supported, so both are proven.
+        python: ["3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Run the suite with coverage
+        run: |
+          pytest -q \
+            --cov=app/domain --cov=app/services \
+            --cov-report=term --cov-report=xml \
+            --cov-fail-under=85
+      - uses: actions/upload-artifact@v4
+        if: always() && matrix.python == '3.13'
+        with:
+          name: coverage
+          path: coverage.xml
+          retention-days: 7
+
+  security-suite:
+    name: Security suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Every guardrail scenario must pass
+        # Run as its own job so a regression in the SQL guard or the injection screen is
+        # reported as a security failure rather than buried in the test summary.
+        run: |
+          python - <<'PY'
+          import sys
+          from app.services.evaluation_service import run_suite, summarise
+
+          results = run_suite()
+          summary = summarise(results)
+          print(
+              f"{summary['passed']}/{summary['total']} passed  "
+              f"attacks blocked {summary['attacks_blocked']}/{summary['attacks_total']}  "
+              f"benign allowed {summary['benign_allowed']}/{summary['benign_total']}"
+          )
+          for result in results:
+              if not result.passed:
+                  print(f"FAILED {result.scenario.id}: {result.scenario.name} -> {result.observed}")
+          sys.exit(0 if summary["failed"] == 0 else 1)
+          PY
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Every module must parse
+        # There is no bundler, so a syntax error is silent on the server and total in the
+        # browser. node --check is the cheapest way to make that loud.
+        run: |
+          for file in web/assets/*.js web/assets/pages/*.js; do
+            node --check "$file" || exit 1
+          done
+          echo "all modules parse"
+      - name: Stylesheets are referenced and present
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, sys
+
+          html = pathlib.Path("web/index.html").read_text()
+          missing = [
+              href
+              for href in re.findall(r'<link rel="stylesheet" href="([^"]+)"', html)
+              if not pathlib.Path("web" + href).is_file()
+          ]
+          if missing:
+              print("referenced but absent:", missing)
+              sys.exit(1)
+          print("every stylesheet resolves")
+          PY
+
+  smoke:
+    name: Smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Seed, start, and exercise the running application
+        # Proves the thing actually boots and serves, which no unit test does.
+        run: |
+          cp .env.example .env
+          python -m scripts.seed_demo
+          python -m uvicorn app.main:app --factory --port 8000 &
+          for _ in $(seq 1 30); do
+            curl --silent --fail http://localhost:8000/health/ready && break
+            sleep 1
+          done
+          curl --silent --fail http://localhost:8000/ > /dev/null
+          curl --silent --fail http://localhost:8000/assets/main.js > /dev/null
+          TOKEN=$(curl --silent --fail -X POST http://localhost:8000/api/v1/auth/demo \
+            -H 'Content-Type: application/json' -d '{"role":"admin"}' \
+            | python -c 'import sys,json; print(json.load(sys.stdin)["access_token"])')
+          curl --silent --fail -H "Authorization: Bearer $TOKEN" \
+            http://localhost:8000/api/v1/evaluation/suite > /dev/null
+          curl --silent --fail -H "Authorization: Bearer $TOKEN" \
+            http://localhost:8000/api/v1/datasources/schema > /dev/null
+          echo "the application boots and serves"
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    # Advisories appear without anyone changing the code, so this reports rather than blocks.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install pip-audit
+      - run: pip-audit --requirement requirements.txt --strict
+
+  docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: meridian:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: The image must start and report ready
+        run: |
+          docker run --rm --detach --name meridian-ci \
+            --env APP_ENV=docker \
+            --env DATABASE_URL=sqlite+aiosqlite:///meridian.db \
+            --env COMPANY_DATABASE_URL=sqlite+aiosqlite:///company.db \
+            --env JWT_SECRET=ci-only-secret-long-enough-for-hmac-sha256 \
+            --publish 8000:8000 meridian:ci
+          for _ in $(seq 1 60); do
+            if curl --silent --fail http://localhost:8000/health/ready; then
+              echo "container is ready"
+              docker rm --force meridian-ci
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "container never became ready" >&2
+          docker logs meridian-ci
+          docker rm --force meridian-ci
+          exit 1

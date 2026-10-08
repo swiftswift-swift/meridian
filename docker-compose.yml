@@ -1,0 +1,75 @@
+# Local stack: the application, PostgreSQL and Redis.
+#
+# There is no worker service because the worker is not built. Declaring one that immediately
+# exits would be worse than leaving it out, so it is listed in PLAN.md instead.
+
+name: meridian
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8000"
+    environment:
+      APP_ENV: docker
+      DATA_DIR: /data
+      # The application database. Separate from the company data below, so the agent's
+      # read-only connection cannot reach users, runs or reports even in principle.
+      DATABASE_URL: postgresql+psycopg://meridian:meridian@postgres:5432/meridian
+      COMPANY_DATABASE_URL: postgresql+psycopg://meridian:meridian@postgres:5432/company
+      REDIS_URL: redis://redis:6379/0
+      # Offline by default: the stack comes up and demonstrates itself with no key and no
+      # outbound network. Override LLM_PROVIDER to use a real model.
+      LLM_PROVIDER: ${LLM_PROVIDER:-scripted}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      EMBEDDING_PROVIDER: hash
+      TOOLS_MODE: fixtures
+      # Generated per stack rather than hard-coded, so a copied compose file is not a shared
+      # signing key. Override it for anything beyond a local demo.
+      JWT_SECRET: ${JWT_SECRET:-local-compose-secret-not-for-production-use}
+      PUBLIC_BASE_URL: http://localhost:8080
+      LOG_FORMAT: json
+    volumes:
+      - app_data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: meridian
+      POSTGRES_PASSWORD: meridian
+      POSTGRES_DB: meridian
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Creates the second database the SQL tool reads; POSTGRES_DB only makes one.
+      - ./docker/init-company-db.sql:/docker-entrypoint-initdb.d/10-company.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U meridian -d meridian"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  app_data:
+  postgres_data:
