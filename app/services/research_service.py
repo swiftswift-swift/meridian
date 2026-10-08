@@ -382,8 +382,16 @@ class ResearchService:
         }
         report = verify_report(body, observations)
         cleaned = strip_unsupported_claims(body, report.unsupported)
+        # Falling back to the original body when everything was stripped would publish exactly
+        # the text verification just rejected, which is the one outcome this step exists to
+        # prevent. An empty answer that says so is the honest result.
+        if not cleaned.strip():
+            cleaned = (
+                "No part of the draft answer could be supported by the data that was returned, "
+                "so it has been withheld. The searches below show what was actually found."
+            )
         return {
-            "body": cleaned or body,
+            "body": cleaned,
             "score": report.score,
             "removed": [claim.sentence for claim in report.unsupported],
         }
