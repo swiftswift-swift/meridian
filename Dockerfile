@@ -43,7 +43,6 @@ COPY --chown=meridian:meridian app ./app
 COPY --chown=meridian:meridian company_db ./company_db
 COPY --chown=meridian:meridian scripts ./scripts
 COPY --chown=meridian:meridian web ./web
-COPY --chown=meridian:meridian tests/fixtures ./tests/fixtures
 COPY --chown=meridian:meridian docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 
 RUN chmod +x /usr/local/bin/entrypoint.sh \

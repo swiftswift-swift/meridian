@@ -198,6 +198,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Every COPY source must be tracked by git
+        # git does not track empty directories, so a COPY can succeed on a developer's disk
+        # and fail in a checkout. Catching it here costs a second; catching it in the build
+        # costs a full image pull first.
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, subprocess, sys
+
+          tracked = set(subprocess.run(["git", "ls-files"], capture_output=True, text=True).stdout.split())
+          missing = []
+          for line in pathlib.Path("Dockerfile").read_text().splitlines():
+              match = re.match(r"COPY (?:--from=\S+ |--chown=\S+ )*(\S+) (\S+)", line.strip())
+              if not match:
+                  continue
+              source = match.group(1)
+              if source.startswith("/"):
+                  continue
+              if not any(t == source or t.startswith(source.rstrip("/") + "/") for t in tracked):
+                  missing.append(source)
+          if missing:
+              print("COPY sources absent from git:", missing)
+              sys.exit(1)
+          print("every COPY source is tracked")
+          PY
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:
