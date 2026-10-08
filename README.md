@@ -1,7 +1,6 @@
 # Meridian
 
-<!-- Replace OWNER/REPO once the repository has a remote; the badge is dead until then. -->
-[![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
+[![CI](https://github.com/swiftswift-swift/meridian/actions/workflows/ci.yml/badge.svg)](https://github.com/swiftswift-swift/meridian/actions/workflows/ci.yml)
 
 An autonomous research and analysis agent for business analysts. An analyst asks a multi-step
 question, the agent plans the investigation, asks the user to approve the plan, executes it by
