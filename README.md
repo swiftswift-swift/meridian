@@ -54,11 +54,14 @@ Every number below came from running the command shown, on Windows 11 with Pytho
                         documents 12 (1 flagged for injection), chunks 18
 security suite          22/22 scenarios pass: 17/17 attacks blocked,
                         5/5 legitimate inputs allowed
+pip-audit               No known vulnerabilities found (102 runtime packages)
 ```
 
 ## Quick start
 
-Requires Windows with PowerShell, Python 3.13 or newer, and Node 20 or newer.
+Requires Windows with PowerShell, Python 3.14, and Node 20 or newer. The lock file is
+resolved against 3.14; 3.13 is not currently installable from it, which is recorded in
+[docs/backlog.md](docs/backlog.md).
 
 ```powershell
 .\tasks.ps1 setup

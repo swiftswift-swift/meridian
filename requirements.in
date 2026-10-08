@@ -30,7 +30,10 @@ langchain-core==1.6.6
 
 # Tools
 sqlglot==30.21.0
-chromadb==1.5.9
+# chromadb was dropped. It was never imported: knowledge search uses the offline hash
+# embeddings in app/adapters/embedding/, so the dependency bought nothing while pulling in 27
+# transitive packages (onnxruntime, kubernetes, grpcio, tokenizers) and five unfixed CVEs.
+# Reinstating the "local" ONNX embedding provider means adding it back deliberately.
 rank-bm25==0.2.2
 numpy==2.5.3
 httpx==0.28.1

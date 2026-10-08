@@ -4,7 +4,10 @@ version = "0.0.0"
 description = "Autonomous research and analysis agent for business analysts"
 readme = "README.md"
 license = { text = "MIT" }
-requires-python = ">=3.13,<3.15"
+# The code targets 3.13+, but the committed lock file is resolved against 3.14 and will not
+# install on 3.13. Until the lock is compiled on the lower bound, 3.14 is what is actually
+# supported. Tracked in docs/backlog.md.
+requires-python = ">=3.14,<3.15"
 
 [build-system]
 requires = ["setuptools>=80"]
