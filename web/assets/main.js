@@ -12,6 +12,7 @@ import { runDetailPage, runsPage } from "./pages/runs.js";
 import { dataPage } from "./pages/data.js";
 import { evaluationPage, insightsPage, settingsPage } from "./pages/admin.js";
 import { sharedReportPage } from "./pages/shared.js";
+import { initPalette } from "./palette.js";
 import { escapeHtml } from "./ui.js";
 
 route("/", landingPage);
@@ -41,6 +42,7 @@ setNotFound(
 async function boot() {
   initTheme();
   initLinks();
+  initPalette();
   // Restore the session before the first render so a refresh inside the workspace does not
   // bounce the user out to sign-in and back.
   if (session.token) {

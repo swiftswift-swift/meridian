@@ -15,6 +15,7 @@ import {
   table,
   toast,
 } from "../ui.js";
+import { bindExportActions, exportActions } from "../export.js";
 import { chartSpec } from "../format.js";
 import { barChart } from "../ui.js";
 import { linkCitations } from "./research.js";
@@ -137,6 +138,7 @@ export async function runDetailPage(view, params) {
       lede: run.question,
       actions: `
         <button class="btn btn-ghost" id="share">Copy share link</button>
+        ${exportActions()}
         <button class="btn btn-ghost" id="rerun">Ask again</button>
         <button class="btn btn-ghost danger" id="delete">Delete</button>`,
     })}
@@ -214,6 +216,17 @@ export async function runDetailPage(view, params) {
       target.classList.add("flash");
       setTimeout(() => target.classList.remove("flash"), 900);
     }
+  });
+
+  bindExportActions(view, {
+    title: report?.title || run.question,
+    question: run.question,
+    body: report?.body || run.error || "",
+    verification_score: report?.verification_score ?? 0,
+    removed_claims: report?.removed_claims || [],
+    limitations: report?.limitations || [],
+    observations: run.observations,
+    usage: run.usage,
   });
 
   $("#share").addEventListener("click", async () => {
