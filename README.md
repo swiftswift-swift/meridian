@@ -4,50 +4,54 @@ An autonomous research and analysis agent for business analysts. An analyst asks
 question, the agent plans the investigation, asks the user to approve the plan, executes it by
 choosing tools, and writes a report in which every factual claim is cited to a tool result.
 
-**Build status: partial.** This repository is a work in progress. The backend foundation,
-guardrails, data layer and test suite are implemented and verified. The LangGraph agent, the
-worker, the live run UI and the deployment pipeline are specified in [SPEC.md](SPEC.md) and
-tracked in [PLAN.md](PLAN.md) but not yet built. The section
-[What is implemented](#what-is-implemented) is an honest accounting; nothing in this README
-describes code that does not exist.
+**Build status: partial but usable.** The web application, the guarded SQL path, citation
+verification and the saved-run history work end to end. The durable worker, re-planning and
+crash recovery are specified in [SPEC.md](SPEC.md) and tracked in [PLAN.md](PLAN.md) but not
+built. The table below is an honest accounting; nothing in this README describes code that does
+not exist, and every figure came from a command that was run.
 
 ## What is implemented
 
 | Area | Status | Where |
 | --- | --- | --- |
-| Settings with fail-fast validation | Done | [app/settings.py](app/settings.py) |
-| Error taxonomy, RFC 9457 responses | Done | [app/domain/errors.py](app/domain/errors.py), [app/api/errors.py](app/api/errors.py) |
-| Port protocols (ports and adapters) | Done | [app/domain/ports.py](app/domain/ports.py) |
+| Web application: landing, sign-in, workspace, 7 pages | Done | [web/](web/) |
+| Ask a question, get a verified cited answer | Done | [app/services/research_service.py](app/services/research_service.py) |
 | Read-only SQL guard, by parsing | Done | [app/domain/sql_guard.py](app/domain/sql_guard.py) |
-| Budget arithmetic and stop decisions | Done | [app/domain/budgets.py](app/domain/budgets.py) |
-| Citation extraction and verification | Done | [app/domain/citations.py](app/domain/citations.py) |
-| RBAC rules | Done | [app/domain/rbac.py](app/domain/rbac.py) |
-| 14-table schema with justified indexes | Done | [app/infra/models.py](app/infra/models.py) |
-| Argon2 + JWT auth, demo sign-in | Done | [app/services/auth_service.py](app/services/auth_service.py) |
-| App factory, middleware, health probes | Done | [app/main.py](app/main.py) |
-| Offline hash embeddings | Done | [app/adapters/embedding/hash_embedding.py](app/adapters/embedding/hash_embedding.py) |
-| Redis and in-process cache / rate limiter | Done | [app/adapters/cache/](app/adapters/cache/) |
-| Company data with three planted stories | Done | [company_db/generate.py](company_db/generate.py) |
+| Citation verification against returned rows | Done | [app/domain/citations.py](app/domain/citations.py) |
+| Saved runs, history, share links | Done | [app/services/run_service.py](app/services/run_service.py) |
+| Security evaluation suite, executed live | Done | [app/services/evaluation_service.py](app/services/evaluation_service.py) |
 | Document ingest, chunking, injection screening | Done | [app/services/document_service.py](app/services/document_service.py) |
-| Test suite (95 tests, offline) | Done | [tests/](tests/) |
-| LangGraph agent and nodes | Not built | Phase 3 of [PLAN.md](PLAN.md) |
+| Argon2 + JWT auth, RBAC | Done | [app/services/auth_service.py](app/services/auth_service.py) |
+| Any OpenAI-compatible model (OpenAI, Groq, Ollama) | Done | [app/adapters/chat/openai_chat.py](app/adapters/chat/openai_chat.py) |
+| Export: Markdown download, PDF via print | Done | [web/assets/export.js](web/assets/export.js) |
+| Command palette, guided tour | Done | [web/assets/palette.js](web/assets/palette.js) |
+| Budgets, error taxonomy, port protocols | Done | [app/domain/](app/domain/) |
+| 14-table schema with justified indexes | Done | [app/infra/models.py](app/infra/models.py) |
+| Company data with three planted stories | Done | [company_db/generate.py](company_db/generate.py) |
+| LangGraph agent graph | Not built | Phase 3 of [PLAN.md](PLAN.md) |
 | Worker, queue, durable resume | Not built | Phase 4 |
-| SSE run events, run and report APIs | Not built | Phase 4 |
-| Evaluation suite, observability | Not built | Phase 5 |
-| Frontend | Not built | Phases 6 to 8 |
-| Docker, CI, docs | Not built | Phase 9 |
+| Re-planning when evidence contradicts the plan | Not built | Phase 3 |
+| Live streaming (SSE) while a run is in progress | Not built | Phase 4 |
+| Docker, CI | Not built | Phase 9 |
+
+The research pipeline is a single pass -- plan, query, write, verify -- rather than the
+LangGraph loop the specification describes. The guardrails that make it safe are real; the
+orchestration around them is simpler than planned.
 
 ## Verified state
 
 Every number below came from running the command shown, on Windows 11 with Python 3.14.8.
 
 ```
-.\tasks.ps1 test        95 passed
-.\tasks.ps1 lint        All checks passed (ruff format + ruff check)
-.\tasks.ps1 typecheck   Success: no issues found in 56 source files (mypy --strict)
-.\tasks.ps1 seed        regions 3, countries 13, products 10, customers 22,
+.	asks.ps1 test        173 passed
+                        92% coverage on app/domain and app/services
+.	asks.ps1 lint        All checks passed (ruff format + ruff check)
+.	asks.ps1 typecheck   Success: no issues found in 72 source files (mypy --strict)
+.	asks.ps1 seed        regions 3, countries 13, products 10, customers 22,
                         orders 4491, order_items 7510, marketing_spend 132,
-                        documents 12 (1 flagged as containing injection), chunks 18
+                        documents 12 (1 flagged for injection), chunks 18
+security suite          22/22 scenarios pass: 17/17 attacks blocked,
+                        5/5 legitimate inputs allowed
 ```
 
 ## Quick start
@@ -63,14 +67,27 @@ copy .env.example .env
 
 The defaults run entirely offline: no API key, no network access, no model download.
 
-To see the API:
+Then start it:
 
 ```powershell
-.venv\Scripts\python.exe -m uvicorn app.main:app --factory --port 8000
+.venv\Scripts\python.exe -m uvicorn app.main:app --factory --port 8080
 ```
 
-Then `http://localhost:8000/api/docs` for the developer API, and
-`http://localhost:8000/health/ready` for the readiness probe. There is no web UI yet.
+Open <http://localhost:8080>. The developer API is at `/api/docs`, deliberately unlinked from
+the site navigation.
+
+To ask free-form questions rather than the built-in ones, point it at any OpenAI-compatible
+provider and restart:
+
+```
+LLM_PROVIDER=openai
+OPENAI_BASE_URL=https://api.groq.com/openai/v1
+OPENAI_API_KEY=gsk_...
+OPENAI_MODEL=openai/gpt-oss-120b
+```
+
+Ollama works the same way with `OPENAI_BASE_URL=http://localhost:11434/v1` and no key, which
+keeps every question on your own machine.
 
 Demo accounts created by the seed, all with password `demo-password`:
 
