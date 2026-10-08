@@ -2,7 +2,9 @@
 
 import { research, runs, session } from "../api.js";
 import { pageHeader } from "../shell.js";
+import { bindExportActions, exportActions } from "../export.js";
 import { chartSpec } from "../format.js";
+import { startTour } from "../tour.js";
 import { $, barChart, duration, escapeHtml, table, toast } from "../ui.js";
 
 const EXAMPLES = [
@@ -153,6 +155,15 @@ export async function researchPage(view) {
     start();
   });
   $("#go").addEventListener("click", start);
+  if (sessionStorage.getItem("meridian.autorun") === "1") {
+    sessionStorage.removeItem("meridian.autorun");
+    start();
+  } else {
+    // Only offered on a quiet page: starting a tour over a running investigation is noise.
+    const replay = sessionStorage.getItem("meridian.replayTour") === "1";
+    sessionStorage.removeItem("meridian.replayTour");
+    setTimeout(() => startTour({ force: replay }), 700);
+  }
   $("#question").addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
@@ -320,7 +331,7 @@ function renderAnswer(result) {
       </p>
 
       <div class="report-actions">
-        <button class="btn btn-ghost btn-sm" data-copy>Copy this answer</button>
+        ${exportActions()}
         <a class="btn btn-ghost btn-sm" href="/app/runs/${encodeURIComponent(result.run_id)}" data-link>Open saved copy</a>
       </div>
     </article>
@@ -407,18 +418,7 @@ function renderFinding(step) {
 }
 
 function bindAnswer(stage, result) {
-  const copy = stage.querySelector("[data-copy]");
-  if (copy) {
-    copy.addEventListener("click", async () => {
-      const text = `${result.title}\n\n${result.body}\n\n(${Math.round(result.verification_score * 100)}% of figures verified against the source data.)\n`;
-      try {
-        await navigator.clipboard.writeText(text);
-        toast("Copied. You can paste it into an email or a document.", "success");
-      } catch {
-        toast("Your browser blocked copying.", "error");
-      }
-    });
-  }
+  bindExportActions(stage, { ...result, question: $("#question")?.value || result.question });
 
   stage.addEventListener("click", (event) => {
     const chip = event.target.closest("cite[data-src]");

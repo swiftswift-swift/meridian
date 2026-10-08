@@ -1,0 +1,293 @@
+/* Command palette, guided tour, and the print layout.
+
+   The print rules matter more than they look: "Save as PDF" goes through the browser's own
+   print dialog, so this stylesheet is the PDF renderer. */
+
+/* --- command palette ------------------------------------------------------ */
+
+.palette-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 12vh 20px 20px;
+}
+
+.palette {
+  width: min(620px, 100%);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: 0 30px 70px -20px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 70vh;
+}
+
+#palette-input {
+  border: none;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  padding: 16px 18px;
+  font-size: 16px;
+}
+#palette-input:focus {
+  outline: none;
+  border-color: var(--line);
+}
+
+.palette-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  flex: 1;
+}
+.palette-group {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding: 12px 12px 5px;
+}
+.palette-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: baseline;
+  padding: 9px 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.palette-item.active {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.palette-label {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.palette-item.active .palette-label {
+  color: var(--accent);
+}
+.palette-hint {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+.palette-empty {
+  padding: 22px 12px;
+  color: var(--text-faint);
+  font-size: 13.5px;
+  text-align: center;
+}
+
+.palette-foot {
+  display: flex;
+  gap: 18px;
+  padding: 9px 18px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+kbd {
+  font-family: var(--mono);
+  font-size: 10px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  padding: 1px 5px;
+  margin-right: 3px;
+  color: var(--text-dim);
+}
+
+/* --- guided tour ---------------------------------------------------------- */
+
+.tour-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 190;
+  background: rgba(0, 0, 0, 0.5);
+}
+.tour-card {
+  position: fixed;
+  width: min(340px, calc(100vw - 24px));
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 18px;
+  box-shadow: 0 20px 50px -16px rgba(0, 0, 0, 0.65);
+}
+.tour-step {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 8px;
+}
+.tour-card h3 {
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+.tour-card p {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+.tour-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+.tour-right {
+  display: flex;
+  gap: 8px;
+}
+
+/* The element the current step is talking about, lifted above the backdrop. */
+.tour-target {
+  position: relative;
+  z-index: 195;
+  box-shadow:
+    0 0 0 3px var(--accent),
+    0 0 0 9px color-mix(in srgb, var(--accent) 22%, transparent);
+  border-radius: var(--radius);
+}
+
+/* --- print, which is also the PDF renderer -------------------------------- */
+
+@media print {
+  @page {
+    margin: 16mm;
+  }
+
+  .sidebar,
+  .drawer-toggle,
+  .scrim,
+  .site-header,
+  .site-footer,
+  .toast-stack,
+  .palette-backdrop,
+  .tour-backdrop,
+  .page-actions,
+  .report-actions,
+  .ask-panel,
+  .examples-panel,
+  .welcome,
+  .tabs,
+  .list-toolbar,
+  .list-foot,
+  .raw-query,
+  .open-hint,
+  .chev {
+    display: none !important;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  .workspace {
+    display: block;
+  }
+  .view {
+    padding: 0;
+    max-width: none;
+  }
+
+  .panel,
+  .query-card,
+  .chart {
+    border: 1px solid #bbb !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .answer-panel h2 {
+    font-size: 20pt;
+  }
+  .report-body p,
+  .plain-answer {
+    font-size: 11pt;
+    color: #000 !important;
+    max-width: none;
+  }
+
+  /* Citations print as plain references; a yellow chip is wasted ink. */
+  cite {
+    background: none !important;
+    color: #000 !important;
+    border: 1px solid #999;
+    font-weight: 600;
+  }
+
+  .confidence {
+    border: 1px solid #999 !important;
+    background: #f4f4f4 !important;
+  }
+  .confidence strong,
+  .confidence span {
+    color: #000 !important;
+  }
+
+  table {
+    font-size: 9pt;
+  }
+  th {
+    color: #000 !important;
+    border-bottom: 1px solid #666;
+  }
+  td {
+    color: #222 !important;
+  }
+  .table-wrap {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .chart-bar {
+    background: #666 !important;
+    animation: none !important;
+  }
+  .chart-bar.alt {
+    background: #bbb !important;
+  }
+
+  /* Every source is expanded by printAnswer, so the printed copy carries the evidence. */
+  details {
+    display: block !important;
+  }
+  summary {
+    font-weight: 600;
+  }
+
+  a[href]::after {
+    content: "";
+  }
+}
+
+@media (max-width: 560px) {
+  .palette-backdrop {
+    padding: 6vh 12px 12px;
+  }
+  .palette-hint {
+    display: none;
+  }
+}

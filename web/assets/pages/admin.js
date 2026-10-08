@@ -2,6 +2,7 @@
 
 import { auth, data, evaluation, insights, session } from "../api.js";
 import { pageHeader } from "../shell.js";
+import { startTour } from "../tour.js";
 import {
   $,
   barChart,
@@ -170,6 +171,7 @@ export async function settingsPage(view) {
           <div><dt>Role</dt><dd>${escapeHtml(user?.role || "")}</dd></div>
           <div><dt>Type</dt><dd>${user?.is_demo ? "Demo account" : "Standard account"}</dd></div>
         </dl>
+        <p><button class="btn btn-ghost btn-sm" id="replay-tour" type="button">Show the guided tour again</button></p>
         <p class="field-hint">
           What the roles mean: a viewer can read answers but not ask new questions, an analyst
           can ask questions, and an admin can also see Usage and change who has which role.
@@ -181,6 +183,11 @@ export async function settingsPage(view) {
       </section>
     </div>
     ${isAdmin ? '<section class="panel"><h3 class="panel-title">People with access</h3><div id="users">' + skeleton(3) + "</div></section>" : ""}`;
+
+  $("#replay-tour")?.addEventListener("click", () => {
+    sessionStorage.setItem("meridian.replayTour", "1");
+    location.href = "/app/new";
+  });
 
   try {
     const providers = await data.providers();
