@@ -11,3 +11,10 @@ mypy==2.4.0
 pip-tools==7.6.1
 pre-commit==4.6.2
 locust==2.46.6
+
+# pip-tools resolves against the interpreter and platform it runs on, and this lock is compiled
+# on Windows. locust depends on pywin32 and pytest on colorama only on Windows, but a Windows
+# resolve emits them unconditionally, and `pip install` then fails on Linux because pywin32 has
+# no Linux distribution at all. Declaring them with markers keeps one lock file usable on both.
+pywin32==312 ; sys_platform == "win32"
+colorama==0.4.6 ; sys_platform == "win32"

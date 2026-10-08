@@ -62,8 +62,9 @@ click==8.5.0
     #   flask
     #   pip-tools
     #   uvicorn
-colorama==0.4.6
+colorama==0.4.6 ; sys_platform == "win32"
     # via
+    #   -r requirements-dev.in
     #   build
     #   pytest
 configargparse==1.8.0
@@ -346,8 +347,10 @@ python-socketio==5.17.0
     # via locust
 pytz==2026.5
     # via dateparser
-pywin32==312
-    # via locust
+pywin32==312 ; sys_platform == "win32"
+    # via
+    #   -r requirements-dev.in
+    #   locust
 pyyaml==6.0.3
     # via
     #   langchain-core
