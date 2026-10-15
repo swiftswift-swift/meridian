@@ -5,12 +5,12 @@
 pytest==9.1.1
 pytest-asyncio==1.4.0
 pytest-cov==7.1.0
-hypothesis==6.168.3
-ruff==0.16.10
+hypothesis==6.169.0
+ruff==0.17.0
 mypy==2.4.0
-pip-tools==7.6.1
+pip-tools==7.6.2
 pre-commit==4.6.2
-locust==2.46.6
+locust==2.46.7
 
 # pip-tools resolves against the interpreter and platform it runs on, and this lock is compiled
 # on Windows. locust depends on pywin32 and pytest on colorama only on Windows, but a Windows
