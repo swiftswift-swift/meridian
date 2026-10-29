@@ -8,7 +8,7 @@ aiosqlite==0.22.1
     # via
     #   -r requirements.in
     #   langgraph-checkpoint-sqlite
-alembic==1.20.0
+alembic==1.20.1
     # via -r requirements.in
 annotated-doc==0.0.5
     # via fastapi
@@ -46,9 +46,7 @@ certifi==2026.7.22
     #   requests
     #   trafilatura
 cffi==2.1.1
-    # via
-    #   argon2-cffi-bindings
-    #   gevent
+    # via argon2-cffi-bindings
 cfgv==3.5.0
     # via pre-commit
 charset-normalizer==3.5.2
@@ -62,11 +60,6 @@ click==8.5.0
     #   flask
     #   pip-tools
     #   uvicorn
-colorama==0.4.6 ; sys_platform == "win32"
-    # via
-    #   -r requirements-dev.in
-    #   build
-    #   pytest
 configargparse==1.8.0
     # via locust
 courlan==1.4.0
@@ -75,7 +68,7 @@ coverage==7.16.2
     # via pytest-cov
 dateparser==1.4.3
     # via htmldate
-ddgs==9.16.0
+ddgs==9.16.1
     # via -r requirements.in
 distlib==0.4.3
     # via virtualenv
@@ -85,7 +78,7 @@ dnspython==2.8.0
     # via email-validator
 email-validator==2.3.0
     # via -r requirements.in
-fastapi==0.142.2
+fastapi==0.162.0
     # via -r requirements.in
 filelock==4.0.10
     # via
@@ -133,7 +126,7 @@ httpx==0.28.1
     #   langgraph-sdk
 httpx2==2.13.1
     # via langsmith
-hypothesis==6.168.3
+hypothesis==6.170.11
     # via -r requirements-dev.in
 identify==2.6.20
     # via pre-commit
@@ -158,7 +151,7 @@ justext==3.0.2
     # via trafilatura
 langchain==1.4.3
     # via -r requirements.in
-langchain-core==1.6.6
+langchain-core==1.7.0
     # via
     #   -r requirements.in
     #   langchain
@@ -166,33 +159,33 @@ langchain-core==1.6.6
     #   langgraph-checkpoint
     #   langgraph-prebuilt
     #   langgraph-sdk
-langchain-protocol==0.0.19
+langchain-protocol==0.0.20
     # via
     #   langchain-core
     #   langgraph-sdk
-langgraph==1.2.12
+langgraph==1.2.17
     # via
     #   -r requirements.in
     #   langchain
-langgraph-checkpoint==4.2.0
+langgraph-checkpoint==4.3.1
     # via
     #   langgraph
     #   langgraph-checkpoint-postgres
     #   langgraph-checkpoint-sqlite
     #   langgraph-prebuilt
-langgraph-checkpoint-postgres==3.1.2
+langgraph-checkpoint-postgres==3.2.0
     # via -r requirements.in
-langgraph-checkpoint-sqlite==3.1.1
+langgraph-checkpoint-sqlite==3.1.2
     # via -r requirements.in
 langgraph-prebuilt==1.1.0
     # via langgraph
-langgraph-sdk==0.4.5
+langgraph-sdk==0.4.10
     # via langgraph
-langsmith==0.14.4
+langsmith==0.14.14
     # via langchain-core
 librt==0.16.0
     # via mypy
-locust==2.46.6
+locust==2.47.0
     # via -r requirements-dev.in
 lxml==6.1.3
     # via
@@ -219,11 +212,11 @@ mypy-extensions==1.1.0
     # via mypy
 nodeenv==1.11.0
     # via pre-commit
-numpy==2.5.3
+numpy==2.5.4
     # via
     #   -r requirements.in
     #   rank-bm25
-opentelemetry-api==1.45.0
+opentelemetry-api==1.45.1
     # via
     #   fastapi
     #   opentelemetry-exporter-http-transport
@@ -242,12 +235,12 @@ opentelemetry-proto==1.45.0
     # via
     #   opentelemetry-exporter-otlp-proto-common
     #   opentelemetry-exporter-otlp-proto-http
-opentelemetry-sdk==1.45.0
+opentelemetry-sdk==1.45.1
     # via
     #   -r requirements.in
     #   opentelemetry-exporter-otlp-common
     #   opentelemetry-exporter-otlp-proto-http
-opentelemetry-semantic-conventions==0.66b0
+opentelemetry-semantic-conventions==0.66b1
     # via opentelemetry-sdk
 orjson==3.12.0
     # via
@@ -266,7 +259,7 @@ packaging==26.3
     #   wheel
 pathspec==1.1.1
     # via mypy
-pip-tools==7.6.1
+pip-tools==7.6.2
     # via -r requirements-dev.in
 platformdirs==4.12.3
     # via virtualenv
@@ -274,7 +267,7 @@ pluggy==1.6.0
     # via
     #   pytest
     #   pytest-cov
-pre-commit==4.6.2
+pre-commit==4.7.0
     # via -r requirements-dev.in
 primp==2.0.1
     # via ddgs
@@ -296,7 +289,7 @@ psycopg-pool==3.3.3
     # via langgraph-checkpoint-postgres
 pycparser==3.0
     # via cffi
-pydantic==2.13.5
+pydantic==2.14.1
     # via
     #   -r requirements.in
     #   fastapi
@@ -305,9 +298,9 @@ pydantic==2.13.5
     #   langgraph
     #   langsmith
     #   pydantic-settings
-pydantic-core==2.46.5
+pydantic-core==2.50.1
     # via pydantic
-pydantic-settings==2.15.0
+pydantic-settings==2.16.1
     # via -r requirements.in
 pygments==2.21.0
     # via pytest
@@ -323,7 +316,7 @@ pytest==9.1.1
     #   locust
     #   pytest-asyncio
     #   pytest-cov
-pytest-asyncio==1.4.0
+pytest-asyncio==1.4.1
     # via -r requirements-dev.in
 pytest-cov==7.1.0
     # via -r requirements-dev.in
@@ -347,10 +340,6 @@ python-socketio==5.17.0
     # via locust
 pytz==2026.5
     # via dateparser
-pywin32==312 ; sys_platform == "win32"
-    # via
-    #   -r requirements-dev.in
-    #   locust
 pyyaml==6.0.3
     # via
     #   langchain-core
@@ -372,7 +361,7 @@ requests==2.34.2
     #   requests-toolbelt
 requests-toolbelt==1.0.0
     # via langsmith
-ruff==0.16.10
+ruff==0.17.2
     # via -r requirements-dev.in
 simple-websocket==1.1.0
     # via python-engineio
@@ -382,15 +371,15 @@ sniffio==1.3.1
     # via langsmith
 sortedcontainers==2.4.0
     # via hypothesis
-sqlalchemy==2.1.3
+sqlalchemy==2.1.6
     # via
     #   -r requirements.in
     #   alembic
-sqlglot==30.21.0
+sqlglot==30.24.0
     # via -r requirements.in
 sqlite-vec==0.1.9
     # via langgraph-checkpoint-sqlite
-sse-starlette==3.5.0
+sse-starlette==3.6.0
     # via -r requirements.in
 starlette==1.7.0
     # via
@@ -398,13 +387,13 @@ starlette==1.7.0
     #   sse-starlette
 structlog==26.1.0
     # via -r requirements.in
-tenacity==9.1.4
+tenacity==9.2.1
     # via
     #   -r requirements.in
     #   langchain-core
 tld==0.13.2
     # via courlan
-trafilatura==2.3.0
+trafilatura==2.3.1
     # via -r requirements.in
 truststore==0.10.4
     # via
@@ -426,6 +415,7 @@ typing-extensions==4.16.0
     #   psycopg-pool
     #   pydantic
     #   pydantic-core
+    #   pydantic-settings
     #   sqlalchemy
     #   typing-inspection
 typing-inspection==0.4.4
@@ -433,10 +423,6 @@ typing-inspection==0.4.4
     #   fastapi
     #   pydantic
     #   pydantic-settings
-tzdata==2026.5
-    # via
-    #   psycopg
-    #   tzlocal
 tzlocal==5.4.4
     # via dateparser
 urllib3==2.8.0
@@ -452,6 +438,8 @@ uuid-utils==0.17.1
     #   langsmith
 uvicorn==0.54.0
     # via -r requirements.in
+uvloop==0.23.0
+    # via uvicorn
 virtualenv==21.14.5
     # via pre-commit
 watchfiles==1.3.0
